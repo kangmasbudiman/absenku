@@ -1,0 +1,287 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+
+interface Org {
+  id: string
+  name: string
+  company_code: string
+  address?: string
+  industry?: string
+  website?: string
+  owner_name: string
+  owner_email: string
+  owner_phone?: string
+  logo_url?: string
+}
+
+interface Announcement {
+  id: string
+  content: string
+  is_active: boolean
+  created_at: string
+}
+
+interface Props {
+  org: Org | null
+  announcements: Announcement[]
+  orgId: string
+}
+
+const tabs = [
+  { id: 'info', label: 'Informasi Perusahaan', icon: '🏢' },
+  { id: 'announcements', label: 'Pengumuman', icon: '📢' },
+]
+
+export default function CompanySettingsClient({ org, announcements: initAnnouncements, orgId }: Props) {
+  const [activeTab, setActiveTab] = useState('info')
+  const [announcements, setAnnouncements] = useState(initAnnouncements)
+
+  return (
+    <div className="p-6 max-w-3xl mx-auto space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800">Pengaturan Perusahaan</h1>
+        <p className="text-sm text-gray-400 mt-0.5">Kelola profil dan konfigurasi perusahaan Anda</p>
+      </div>
+
+      {/* Company badge */}
+      <div className="bg-gradient-to-r from-teal-600 to-teal-500 rounded-2xl p-5 flex items-center gap-4">
+        <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center text-2xl shrink-0">
+          🏢
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white">{org?.name ?? '-'}</h2>
+          <p className="text-teal-100 text-sm">{org?.industry ?? 'Belum diisi'}</p>
+          <span className="inline-block mt-1 bg-white/20 text-white text-xs font-bold px-2 py-0.5 rounded-full tracking-widest">
+            {org?.company_code}
+          </span>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="flex border-b border-gray-100">
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-5 py-3.5 text-sm font-medium transition-colors relative ${
+                activeTab === tab.id
+                  ? 'text-teal-700 bg-teal-50/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              {tab.label}
+              {activeTab === tab.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-teal-500 rounded-t-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="p-6">
+          {activeTab === 'info' && <CompanyInfoTab org={org} orgId={orgId} />}
+          {activeTab === 'announcements' && (
+            <AnnouncementsTab
+              announcements={announcements}
+              orgId={orgId}
+              onChange={setAnnouncements}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CompanyInfoTab({ org, orgId }: { org: Org | null; orgId: string }) {
+  const router = useRouter()
+  const [form, setForm] = useState({
+    name: org?.name ?? '',
+    address: org?.address ?? '',
+    industry: org?.industry ?? '',
+    website: org?.website ?? '',
+    owner_name: org?.owner_name ?? '',
+    owner_email: org?.owner_email ?? '',
+    owner_phone: org?.owner_phone ?? '',
+  })
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleSave = async () => {
+    setLoading(true)
+    setMsg(null)
+    const supabase = createClient()
+    const { error } = await supabase.from('organizations').update(form).eq('id', orgId)
+    setMsg(error ? { type: 'error', text: error.message } : { type: 'success', text: 'Data perusahaan berhasil disimpan!' })
+    if (!error) router.refresh()
+    setLoading(false)
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="font-semibold text-gray-800">Informasi Perusahaan</h2>
+        <p className="text-sm text-gray-400 mt-0.5">Perbarui data dan profil perusahaan</p>
+      </div>
+
+      {msg && (
+        <div className={`px-4 py-3 rounded-xl text-sm ${msg.type === 'success' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[
+          { key: 'name', label: 'Nama Perusahaan', placeholder: 'PT. Contoh Indonesia' },
+          { key: 'industry', label: 'Industri', placeholder: 'Teknologi, Manufaktur, dll' },
+          { key: 'address', label: 'Alamat', placeholder: 'Jl. Contoh No. 1, Jakarta' },
+          { key: 'website', label: 'Website', placeholder: 'https://perusahaan.com' },
+          { key: 'owner_name', label: 'Nama Pemilik/PIC', placeholder: 'Nama lengkap' },
+          { key: 'owner_email', label: 'Email PIC', placeholder: 'email@perusahaan.com' },
+          { key: 'owner_phone', label: 'Telepon PIC', placeholder: '+62 812 xxxx xxxx' },
+        ].map(field => (
+          <div key={field.key} className={field.key === 'address' ? 'sm:col-span-2' : ''}>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{field.label}</label>
+            <input
+              type="text"
+              value={form[field.key as keyof typeof form]}
+              onChange={e => setForm({ ...form, [field.key]: e.target.value })}
+              placeholder={field.placeholder}
+              className="w-full px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-gray-50/50"
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* Kode perusahaan (readonly) */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">Kode Perusahaan</label>
+        <div className="flex items-center gap-3 px-4 py-2.5 border border-gray-200 rounded-xl bg-gray-100 text-sm">
+          <span className="font-bold tracking-widest text-teal-700">{org?.company_code}</span>
+          <span className="text-xs text-gray-400">— tidak dapat diubah</span>
+        </div>
+      </div>
+
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={handleSave}
+          disabled={loading}
+          className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white rounded-xl text-sm font-semibold transition-colors"
+        >
+          {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function AnnouncementsTab({ announcements, orgId, onChange }: {
+  announcements: Announcement[]
+  orgId: string
+  onChange: (data: Announcement[]) => void
+}) {
+  const [newText, setNewText] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  const handleAdd = async () => {
+    if (!newText.trim()) return
+    setLoading(true)
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('announcements')
+      .insert({ org_id: orgId, content: newText.trim() })
+      .select()
+      .single()
+    if (error) {
+      setMsg({ type: 'error', text: error.message })
+    } else {
+      onChange([data, ...announcements])
+      setNewText('')
+      setMsg({ type: 'success', text: 'Pengumuman ditambahkan!' })
+    }
+    setLoading(false)
+  }
+
+  const handleToggle = async (item: Announcement) => {
+    const supabase = createClient()
+    await supabase.from('announcements').update({ is_active: !item.is_active }).eq('id', item.id)
+    onChange(announcements.map(a => a.id === item.id ? { ...a, is_active: !a.is_active } : a))
+  }
+
+  const handleDelete = async (id: string) => {
+    const supabase = createClient()
+    await supabase.from('announcements').delete().eq('id', id)
+    onChange(announcements.filter(a => a.id !== id))
+  }
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="font-semibold text-gray-800">Kelola Pengumuman</h2>
+        <p className="text-sm text-gray-400 mt-0.5">Teks akan berjalan di dashboard sebagai running text</p>
+      </div>
+
+      {msg && (
+        <div className={`px-4 py-3 rounded-xl text-sm ${msg.type === 'success' ? 'bg-teal-50 text-teal-700 border border-teal-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+          {msg.text}
+        </div>
+      )}
+
+      {/* Input tambah */}
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newText}
+          onChange={e => setNewText(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleAdd()}
+          placeholder="Tulis pengumuman baru..."
+          className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-sm bg-gray-50/50"
+        />
+        <button
+          onClick={handleAdd}
+          disabled={loading || !newText.trim()}
+          className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold transition-colors shrink-0"
+        >
+          + Tambah
+        </button>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {announcements.length === 0 && (
+          <div className="text-center py-8 text-gray-400 text-sm">Belum ada pengumuman</div>
+        )}
+        {announcements.map(item => (
+          <div key={item.id} className="flex items-start gap-3 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+            <span className="text-lg shrink-0 mt-0.5">📢</span>
+            <p className={`flex-1 text-sm ${item.is_active ? 'text-gray-800' : 'text-gray-400 line-through'}`}>
+              {item.content}
+            </p>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Toggle aktif */}
+              <button
+                onClick={() => handleToggle(item)}
+                title={item.is_active ? 'Nonaktifkan' : 'Aktifkan'}
+                className={`w-9 h-5 rounded-full transition-colors relative ${item.is_active ? 'bg-teal-500' : 'bg-gray-300'}`}
+              >
+                <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-all ${item.is_active ? 'left-4' : 'left-0.5'}`} />
+              </button>
+              {/* Hapus */}
+              <button
+                onClick={() => handleDelete(item.id)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-sm"
+              >
+                🗑️
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}

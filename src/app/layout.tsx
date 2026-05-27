@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import "leaflet/dist/leaflet.css";
+import GlobalErrorSuppressor from "@/components/GlobalErrorSuppressor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,7 +29,22 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          window.onerror = function(msg, src, line, col, err) {
+            if (typeof msg === 'string' && (msg.includes('conversation_id') || msg.includes('Cannot destructure property'))) return true;
+            return false;
+          };
+          window.addEventListener('unhandledrejection', function(e) {
+            var msg = e && e.reason && (e.reason.message || String(e.reason));
+            if (msg && (msg.includes('conversation_id') || msg.includes('Cannot destructure property'))) e.preventDefault();
+          });
+        ` }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <GlobalErrorSuppressor />
+        {children}
+      </body>
     </html>
   );
 }

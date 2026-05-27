@@ -1,65 +1,78 @@
-import Image from "next/image";
+import Link from 'next/link'
 
-export default function Home() {
+export default function LandingPage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-teal-50 to-teal-100">
+      <nav className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
+            <span className="text-white text-sm font-bold">A</span>
+          </div>
+          <span className="font-bold text-xl text-teal-600">AbsenKu</span>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <div className="flex gap-3">
+          <Link href="/absen" className="px-4 py-2 text-teal-600 font-medium hover:underline">
+            Absen Web
+          </Link>
+          <Link href="/login" className="px-4 py-2 text-teal-600 font-medium hover:underline">
+            Masuk
+          </Link>
+          <Link
+            href="/register"
+            className="px-4 py-2 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Daftar Gratis
+          </Link>
+        </div>
+      </nav>
+
+      <main className="max-w-5xl mx-auto px-6 py-20 text-center">
+        <span className="inline-block bg-teal-100 text-teal-700 text-sm font-medium px-3 py-1 rounded-full mb-4">
+          HR & Absensi Digital
+        </span>
+        <h1 className="text-5xl font-bold text-gray-900 mb-6 leading-tight">
+          Kelola Absensi Karyawan<br />
+          <span className="text-teal-600">Lebih Mudah & Akurat</span>
+        </h1>
+        <p className="text-xl text-gray-500 mb-10 max-w-2xl mx-auto">
+          Sistem absensi berbasis GPS & selfie, manajemen shift, perhitungan gaji otomatis,
+          dan anti fake GPS. Semua dalam satu platform.
+        </p>
+
+        <div className="flex justify-center gap-4 mb-20">
+          <Link
+            href="/register"
+            className="px-8 py-4 bg-teal-600 text-white rounded-xl font-semibold text-lg hover:bg-teal-700 shadow-lg"
           >
-            Documentation
-          </a>
+            Daftar Sekarang — Gratis 30 Hari
+          </Link>
+          <Link
+            href="/login"
+            className="px-8 py-4 bg-white text-teal-600 rounded-xl font-semibold text-lg border-2 border-teal-200 hover:border-teal-400"
+          >
+            Login Admin
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {features.map((f) => (
+            <div key={f.title} className="bg-white rounded-xl p-6 text-left shadow-sm">
+              <div className="text-3xl mb-3">{f.icon}</div>
+              <h3 className="font-semibold text-gray-900 mb-1">{f.title}</h3>
+              <p className="text-sm text-gray-500">{f.desc}</p>
+            </div>
+          ))}
         </div>
       </main>
     </div>
-  );
+  )
 }
+
+const features = [
+  { icon: '📍', title: 'GPS + Anti Fake', desc: 'Geofencing akurat, deteksi mock GPS otomatis dari device & server' },
+  { icon: '🤳', title: 'Absen Selfie', desc: 'Verifikasi wajah saat check-in & check-out, foto tersimpan aman' },
+  { icon: '💰', title: 'Payroll Otomatis', desc: 'Hitung gaji, tunjangan, lembur, dan potongan secara otomatis tiap bulan' },
+  { icon: '🏢', title: 'Multi Perusahaan', desc: 'Setiap perusahaan punya data & admin panel terpisah dengan kode unik' },
+  { icon: '🔄', title: 'Multi Shift', desc: 'Dukung rotasi shift, swap shift, dan toleransi keterlambatan per shift' },
+  { icon: '📊', title: 'Laporan Lengkap', desc: 'Dashboard rekap kehadiran, ekspor PDF & Excel untuk payroll' },
+]

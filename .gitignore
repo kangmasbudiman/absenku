@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# flutter project (not part of Next.js deployment)
+absenku/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
