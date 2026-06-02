@@ -23,7 +23,7 @@ export interface ComparisonResult {
 }
 
 // Euclidean distance between two 128-dim face descriptors
-function descriptorDistance(a: number[], b: number[]): number {
+export function descriptorDistance(a: number[], b: number[]): number {
   if (a.length !== b.length) return Infinity
   let sum = 0
   for (let i = 0; i < a.length; i++) {
@@ -46,6 +46,32 @@ export function compareDescriptors(
   return {
     isMatch: distance < 0.6,
     similarity,
+  }
+}
+
+// 1:N identification — find the closest matching descriptor from a set
+export function findBestMatch(
+  capturedDescriptor: number[],
+  storedDescriptors: Array<{ user_id: string; descriptor: number[] }>
+): { user_id: string; distance: number; similarity: number; isMatch: boolean } | null {
+  let bestDistance = Infinity
+  let bestUserId: string | null = null
+
+  for (const entry of storedDescriptors) {
+    const dist = descriptorDistance(capturedDescriptor, entry.descriptor)
+    if (dist < bestDistance) {
+      bestDistance = dist
+      bestUserId = entry.user_id
+    }
+  }
+
+  if (bestUserId === null) return null
+
+  return {
+    user_id: bestUserId,
+    distance: bestDistance,
+    similarity: Math.max(0, Math.min(1, 1 - bestDistance)),
+    isMatch: bestDistance < 0.6,
   }
 }
 

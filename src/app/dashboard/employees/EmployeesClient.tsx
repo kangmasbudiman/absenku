@@ -89,6 +89,19 @@ export default function EmployeesClient({ employees, departments, shifts, positi
   const [resetDone, setResetDone] = useState(false)
   const [resetCopied, setResetCopied] = useState(false)
 
+  // Face registration modal state
+  const [regFaceModal, setRegFaceModal] = useState<Employee | null>(null)
+  const regVideoRef = useReactRef<HTMLVideoElement>(null)
+  const regCanvasRef = useReactRef<HTMLCanvasElement>(null)
+  const regStreamRef = useReactRef<MediaStream | null>(null)
+  const [regCameraReady, setRegCameraReady] = useState(false)
+  const [regPhoto, setRegPhoto] = useState<string | null>(null)
+  const [regProcessing, setRegProcessing] = useState(false)
+  const [regComplete, setRegComplete] = useState(false)
+  const [regError, setRegError] = useState('')
+  const [regModelsLoading, setRegModelsLoading] = useState(false)
+  const [regModelsReady, setRegModelsReady] = useState(false)
+
   const generatePassword = () => {
     const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789'
     return Array.from({ length: 8 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
@@ -304,6 +317,138 @@ export default function EmployeesClient({ employees, departments, shifts, positi
 
   const activeCount = employees.filter(e => e.is_active).length
 
+  // --- Face Registration Functions ---
+  const openFaceRegistration = (emp: Employee) => {
+    setRegFaceModal(emp)
+    setRegPhoto(null)
+    setRegComplete(false)
+    setRegError('')
+    setRegCameraReady(false)
+    setRegProcessing(false)
+    setOpenDropdown(null)
+  }
+
+  const closeFaceRegistration = () => {
+    // Stop camera
+    if (regStreamRef.current) {
+      regStreamRef.current.getTracks().forEach(t => t.stop())
+      regStreamRef.current = null
+    }
+    setRegFaceModal(null)
+    setRegPhoto(null)
+    setRegComplete(false)
+    setRegError('')
+    setRegCameraReady(false)
+    setRegProcessing(false)
+    setRegModelsReady(false)
+    setRegModelsLoading(false)
+  }
+
+  const startRegCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      })
+      regStreamRef.current = stream
+      if (regVideoRef.current) {
+        regVideoRef.current.srcObject = stream
+        await regVideoRef.current.play()
+        setRegCameraReady(true)
+      }
+    } catch {
+      setRegError('Gagal mengakses kamera. Pastikan izin kamera diaktifkan.')
+    }
+  }
+
+  // Auto-start camera when modal opens
+  useEffect(() => {
+    if (regFaceModal && !regPhoto && !regComplete) {
+      // Load models
+      if (!regModelsReady && !regModelsLoading) {
+        setRegModelsLoading(true)
+        import('@/lib/face-detect').then(({ loadModels }) =>
+          loadModels()
+            .then(() => setRegModelsReady(true))
+            .catch(() => setRegError('Gagal memuat model deteksi wajah'))
+            .finally(() => setRegModelsLoading(false))
+        )
+      }
+      startRegCamera()
+    }
+    if (!regFaceModal) {
+      if (regStreamRef.current) {
+        regStreamRef.current.getTracks().forEach(t => t.stop())
+        regStreamRef.current = null
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regFaceModal, regPhoto, regComplete])
+
+  const captureRegPhoto = async () => {
+    const video = regVideoRef.current
+    const canvas = regCanvasRef.current
+    if (!video || !canvas) return
+
+    // Capture frame
+    canvas.width = video.videoWidth
+    canvas.height = video.videoHeight
+    const ctx = canvas.getContext('2d')!
+    ctx.drawImage(video, 0, 0)
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+    setRegPhoto(dataUrl)
+
+    // Stop camera
+    if (regStreamRef.current) {
+      regStreamRef.current.getTracks().forEach(t => t.stop())
+      regStreamRef.current = null
+    }
+    setRegCameraReady(false)
+
+    // Detect face and register
+    setRegProcessing(true)
+    setRegError('')
+    try {
+      const { detectAndExtract } = await import('@/lib/face-detect')
+      const faceResult = await detectAndExtract(canvas)
+
+      if (!faceResult) {
+        setRegError('Wajah tidak terdeteksi. Pastikan wajah terlihat jelas dan pencahayaan cukup.')
+        setRegProcessing(false)
+        return
+      }
+
+      // Send to server
+      const base64 = dataUrl.split(',')[1]
+      const res = await fetch('/api/register-face', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: regFaceModal!.id,
+          photo_base64: base64,
+          descriptor: faceResult.descriptor,
+          geometry: faceResult.geometry,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) throw new Error(data.error || 'Gagal mendaftarkan wajah')
+
+      setRegComplete(true)
+      router.refresh()
+    } catch (e: unknown) {
+      setRegError(e instanceof Error ? e.message : 'Gagal mendaftarkan wajah')
+    } finally {
+      setRegProcessing(false)
+    }
+  }
+
+  const retryRegPhoto = () => {
+    setRegPhoto(null)
+    setRegError('')
+    setRegComplete(false)
+  }
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -461,6 +606,12 @@ export default function EmployeesClient({ employees, departments, shifts, positi
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 <span className="text-base">✏️</span> Edit Profil
+              </button>
+              <button
+                onClick={() => { openFaceRegistration(emp); setOpenDropdown(null) }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-teal-700 hover:bg-teal-50 transition-colors"
+              >
+                <span className="text-base">📷</span> {emp.has_face_registration ? 'Perbarui Wajah' : 'Daftar Wajah'}
               </button>
               <button
                 onClick={() => { openResetPassword(emp); setOpenDropdown(null) }}
@@ -916,6 +1067,166 @@ export default function EmployeesClient({ employees, departments, shifts, positi
             </div>
             <div className="bg-gray-900 flex items-center justify-center p-6">
               <img src={faceModal.url} alt="Foto wajah" className="w-56 h-56 object-cover rounded-2xl border-4 border-green-400 shadow-lg" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Face Registration Modal */}
+      {regFaceModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center text-xl">📷</div>
+                <div>
+                  <h2 className="font-bold text-gray-800">
+                    {regFaceModal.has_face_registration ? 'Perbarui Data Wajah' : 'Daftarkan Wajah'}
+                  </h2>
+                  <p className="text-xs text-gray-400">{regFaceModal.full_name}</p>
+                </div>
+              </div>
+              <button onClick={closeFaceRegistration} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {regFaceModal.has_face_registration && !regComplete && !regPhoto && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 text-xs text-amber-700">
+                  ℹ️ Data wajah lama akan digantikan dengan data baru.
+                </div>
+              )}
+
+              {/* Camera / Photo area */}
+              <div className="relative bg-slate-900 rounded-xl overflow-hidden aspect-[4/3]">
+                {/* Video feed */}
+                {!regPhoto && (
+                  <video
+                    ref={regVideoRef}
+                    className={`w-full h-full object-cover ${!regCameraReady ? 'hidden' : ''}`}
+                    playsInline
+                    muted
+                  />
+                )}
+
+                {/* Captured photo */}
+                {regPhoto && (
+                  <img src={regPhoto} alt="Foto" className="w-full h-full object-cover" />
+                )}
+
+                {/* Camera not ready */}
+                {!regPhoto && !regCameraReady && (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center text-white/40">
+                      <svg className="w-10 h-10 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                      </svg>
+                      <p className="text-xs">Membuka kamera...</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Face guide oval */}
+                {!regPhoto && regCameraReady && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-40 h-52 border-2 border-white/30 rounded-full border-dashed" />
+                  </div>
+                )}
+
+                {/* Processing overlay */}
+                {regPhoto && regProcessing && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <div className="text-center">
+                      <div className="w-14 h-14 mx-auto mb-3 rounded-full border-4 border-teal-400 border-t-transparent animate-spin" />
+                      <p className="text-white text-sm font-medium">Mendeteksi & menyimpan wajah...</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Success overlay */}
+                {regPhoto && regComplete && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                    <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
+                      <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <canvas ref={regCanvasRef} className="hidden" />
+
+              {/* Model loading */}
+              {regModelsLoading && (
+                <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 rounded-full border-2 border-teal-400 border-t-transparent animate-spin" />
+                  Memuat model deteksi wajah...
+                </div>
+              )}
+
+              {/* Error */}
+              {regError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm text-center">
+                  {regError}
+                </div>
+              )}
+
+              {/* Success message */}
+              {regComplete && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-center">
+                  <p className="font-semibold">✅ Data wajah berhasil disimpan!</p>
+                  <p className="text-xs text-green-600 mt-1">
+                    {regFaceModal.full_name} sekarang bisa melakukan absensi Face ID.
+                  </p>
+                </div>
+              )}
+
+              {/* Actions */}
+              {!regPhoto && regCameraReady && !regModelsLoading && (
+                <button
+                  onClick={captureRegPhoto}
+                  disabled={!regModelsReady}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2 text-sm"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0z" />
+                  </svg>
+                  {regModelsReady ? 'Ambil Foto' : 'Menyiapkan...'}
+                </button>
+              )}
+
+              {regPhoto && !regComplete && regError && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={retryRegPhoto}
+                    className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-1.5 text-sm"
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182" />
+                    </svg>
+                    Coba Lagi
+                  </button>
+                  <button
+                    onClick={closeFaceRegistration}
+                    className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm"
+                  >
+                    Batal
+                  </button>
+                </div>
+              )}
+
+              {regComplete && (
+                <button
+                  onClick={closeFaceRegistration}
+                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-colors text-sm"
+                >
+                  Selesai
+                </button>
+              )}
             </div>
           </div>
         </div>

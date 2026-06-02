@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     org: { id: org.id, name: org.name, address: org.address },
+    face_registration_count: faceRegUserIds.size,
     employees: (employees ?? []).map(e => ({
       id: e.id,
       full_name: e.full_name,

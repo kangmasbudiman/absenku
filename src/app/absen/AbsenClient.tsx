@@ -1,44 +1,52 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import { Check, Camera, RotateCcw, ArrowLeft, Building2, User, ScanFace } from 'lucide-react'
-
-type Employee = {
-  id: string
-  full_name: string
-  employee_id: string | null
-  position: string | null
-  face_data_exists: boolean
-}
+import { Check, Camera, ArrowLeft, Building2, ScanFace, User, ShieldCheck } from 'lucide-react'
 
 type Org = { id: string; name: string; address?: string | null }
 
-type Step = 'org' | 'employee' | 'camera' | 'result'
+type Step = 'org' | 'scan' | 'confirm' | 'result'
+
+type IdentifiedEmployee = {
+  user_id: string
+  full_name: string
+  employee_id: string | null
+  position: string | null
+  similarity: number
+  photoUrl: string | null
+}
 
 export default function AbsenClient() {
   const [orgCode, setOrgCode] = useState('')
   const [org, setOrg] = useState<Org | null>(null)
-  const [empCode, setEmpCode] = useState('')
-  const [employee, setEmployee] = useState<Employee | null>(null)
   const [step, setStep] = useState<Step>('org')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [todayStatus, setTodayStatus] = useState<{ has_checked_in: boolean; has_checked_out: boolean } | null>(null)
+
+  // Face registration info
+  const [faceRegCount, setFaceRegCount] = useState(0)
 
   // Camera
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [cameraReady, setCameraReady] = useState(false)
-  const [photoTaken, setPhotoTaken] = useState<string | null>(null)
-  const [verifying, setVerifying] = useState(false)
-  const [verified, setVerified] = useState(false)
-  const [faceError, setFaceError] = useState('')
 
-  // Face verification
+  // Face scanning
   const [modelsLoading, setModelsLoading] = useState(false)
   const [modelsReady, setModelsReady] = useState(false)
-  const [lastSimilarity, setLastSimilarity] = useState<number | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanStatus, setScanStatus] = useState<string>('')
+  const [faceBox, setFaceBox] = useState<{ x: number; y: number; width: number; height: number } | null>(null)
+  const isScanningRef = useRef(false)
+  const lastScanTimeRef = useRef(0)
+  const consecutiveFailuresRef = useRef(0)
+
+  // Identified employee & confirmation
+  const [identifiedEmployee, setIdentifiedEmployee] = useState<IdentifiedEmployee | null>(null)
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+  const [todayStatus, setTodayStatus] = useState<{ has_checked_in: boolean; has_checked_out: boolean } | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   // Result
   const [result, setResult] = useState<{ type: 'checkin' | 'checkout'; time: string } | null>(null)
@@ -51,30 +59,42 @@ export default function AbsenClient() {
     } catch {}
   }, [])
 
-  // Auto-start camera when entering camera step
+  // Camera lifecycle
   useEffect(() => {
-    if (step === 'camera' && !photoTaken) {
+    if (step === 'scan') {
       startCamera()
-    }
-    if (step !== 'camera') {
+    } else {
       stopCamera()
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step])
 
-  // Load face detection models when entering camera step
+  // Load face models when entering scan step
   useEffect(() => {
-    if (step === 'camera' && employee?.face_data_exists && !modelsReady && !modelsLoading) {
+    if (step === 'scan' && faceRegCount > 0 && !modelsReady && !modelsLoading) {
       setModelsLoading(true)
       import('@/lib/face-detect').then(({ loadModels }) =>
         loadModels()
           .then(() => setModelsReady(true))
-          .catch(() => setFaceError('Gagal memuat model verifikasi wajah'))
+          .catch(() => setError('Gagal memuat model verifikasi wajah'))
           .finally(() => setModelsLoading(false))
       )
     }
-  }, [step, employee, modelsReady, modelsLoading])
+  }, [step, faceRegCount, modelsReady, modelsLoading])
 
+  // Start scanning when models are ready and camera is on
+  useEffect(() => {
+    if (step === 'scan' && modelsReady && cameraReady) {
+      // Small delay to let camera stabilize
+      const timer = setTimeout(() => startScanning(), 500)
+      return () => clearTimeout(timer)
+    } else {
+      stopScanning()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, modelsReady, cameraReady])
+
+  // --- Org lookup ---
   const searchOrg = async () => {
     if (!orgCode.trim()) return
     setLoading(true)
@@ -84,8 +104,9 @@ export default function AbsenClient() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Gagal')
       setOrg({ id: data.org.id, name: data.org.name, address: data.org.address })
+      setFaceRegCount(data.face_registration_count ?? 0)
       try { localStorage.setItem('absenku_org_code', orgCode.trim()) } catch {}
-      setStep('employee')
+      setStep('scan')
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Gagal')
     } finally {
@@ -93,30 +114,7 @@ export default function AbsenClient() {
     }
   }
 
-  const lookupEmployee = async () => {
-    if (!empCode.trim()) return
-    setLoading(true)
-    setError('')
-    try {
-      const res = await fetch(`/api/public-employees?org_code=${encodeURIComponent(orgCode.trim())}&emp_code=${encodeURIComponent(empCode.trim())}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Gagal')
-      if (!data.employees?.length) throw new Error('Karyawan tidak ditemukan')
-      const emp = data.employees[0]
-      setEmployee(emp)
-      try {
-        const sRes = await fetch(`/api/public-attendance?user_id=${emp.id}`)
-        const sData = await sRes.json()
-        setTodayStatus(sData)
-      } catch { setTodayStatus(null) }
-      setStep('camera')
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Gagal')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  // --- Camera ---
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -142,89 +140,146 @@ export default function AbsenClient() {
     setCameraReady(false)
   }, [])
 
-  const takePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current) return
-    const video = videoRef.current
-    const canvas = canvasRef.current
-    canvas.width = video.videoWidth
-    canvas.height = video.videoHeight
-    const ctx = canvas.getContext('2d')!
-    ctx.drawImage(video, 0, 0)
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-    setPhotoTaken(dataUrl)
-    stopCamera()
+  // --- Scanning loop ---
+  const startScanning = useCallback(() => {
+    if (isScanningRef.current) return
+    isScanningRef.current = true
+    setScanning(true)
+    setScanStatus('Mendeteksi wajah...')
+    consecutiveFailuresRef.current = 0
 
-    // No face data registered — skip verification
-    if (!employee?.face_data_exists) {
-      setVerified(true)
-      return
-    }
-
-    // Real face verification
-    setVerifying(true)
-    setFaceError('')
-    setLastSimilarity(null)
-    try {
-      const { loadModels, detectAndExtract } = await import('@/lib/face-detect')
-      await loadModels()
-
-      const faceResult = await detectAndExtract(canvas)
-      if (!faceResult) {
-        setFaceError('Wajah tidak terdeteksi. Pastikan wajah terlihat jelas dan pencahayaan cukup.')
+    const scanLoop = async () => {
+      if (!isScanningRef.current || !videoRef.current || !canvasRef.current || !modelsReady) {
         return
       }
 
-      // Send descriptor + geometry to server
-      const verifyRes = await fetch('/api/verify-face', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: employee.id,
-          captured_face_data: {
-            descriptor: faceResult.descriptor,
-            geometry: faceResult.geometry,
-          },
-        }),
-      })
-      const verifyData = await verifyRes.json()
+      const video = videoRef.current
+      const canvas = canvasRef.current
 
-      if (verifyData.verified) {
-        setVerified(true)
-        setLastSimilarity(verifyData.similarity)
-      } else {
-        setFaceError(`Verifikasi gagal${verifyData.face_data_exists ? ` (kesamaan: ${Math.round(verifyData.similarity * 100)}%)` : ''}. Coba lagi.`)
+      // Draw current frame to canvas
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(video, 0, 0)
+
+      try {
+        const { detectSingleDescriptor } = await import('@/lib/face-detect')
+        const faceResult = await detectSingleDescriptor(canvas)
+
+        if (faceResult) {
+          setFaceBox(faceResult.box)
+
+          const now = Date.now()
+          // Throttle API calls: min 1.5s between calls
+          if (now - lastScanTimeRef.current >= 1500) {
+            lastScanTimeRef.current = now
+            setScanStatus('Mengidentifikasi wajah...')
+
+            const res = await fetch('/api/identify-face', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                org_code: orgCode.trim(),
+                captured_descriptor: faceResult.descriptor,
+              }),
+            })
+            const data = await res.json()
+
+            if (data.identified) {
+              // Match found!
+              handleIdentification(data)
+              return
+            } else {
+              setScanStatus('Wajah tidak dikenali. Coba posisikan wajah lebih jelas.')
+              consecutiveFailuresRef.current = 0
+            }
+          }
+        } else {
+          setFaceBox(null)
+          setScanStatus('Mendeteksi wajah...')
+          consecutiveFailuresRef.current = 0
+        }
+      } catch {
+        consecutiveFailuresRef.current++
+        if (consecutiveFailuresRef.current >= 3) {
+          setScanStatus('Koneksi bermasalah. Memeriksa kembali...')
+          consecutiveFailuresRef.current = 0
+        }
       }
-    } catch {
-      setFaceError('Gagal memverifikasi wajah. Silakan coba lagi.')
-    } finally {
-      setVerifying(false)
+
+      // Schedule next frame
+      if (isScanningRef.current) {
+        requestAnimationFrame(scanLoop)
+      }
     }
+
+    scanLoop()
+  }, [modelsReady, orgCode])
+
+  const stopScanning = useCallback(() => {
+    isScanningRef.current = false
+    setScanning(false)
+    setFaceBox(null)
+  }, [])
+
+  // --- Handle successful identification ---
+  const handleIdentification = async (data: {
+    user_id: string; full_name: string; employee_id: string | null
+    position: string | null; similarity: number
+  }) => {
+    stopScanning()
+    stopCamera()
+
+    // Capture current frame as attendance photo
+    const canvas = canvasRef.current!
+    const photoDataUrl = canvas.toDataURL('image/jpeg', 0.8)
+    setCapturedPhoto(photoDataUrl)
+
+    // Fetch registered face photo for confirmation
+    let photoUrl: string | null = null
+    try {
+      const photoRes = await fetch(
+        `/api/public-face-photo?user_id=${data.user_id}&org_code=${encodeURIComponent(orgCode.trim())}`
+      )
+      const photoData = await photoRes.json()
+      if (photoData.url) photoUrl = photoData.url
+    } catch { /* non-critical */ }
+
+    // Fetch today's attendance status
+    let status = null
+    try {
+      const sRes = await fetch(`/api/public-attendance?user_id=${data.user_id}`)
+      status = await sRes.json()
+    } catch { /* non-critical */ }
+
+    setIdentifiedEmployee({
+      user_id: data.user_id,
+      full_name: data.full_name,
+      employee_id: data.employee_id,
+      position: data.position,
+      similarity: data.similarity,
+      photoUrl,
+    })
+    setTodayStatus(status)
+    setStep('confirm')
   }
 
-  const retake = () => {
-    setPhotoTaken(null)
-    setVerified(false)
-    setVerifying(false)
-    setFaceError('')
-    setLastSimilarity(null)
-    startCamera()
-  }
-
-  const submitAttendance = async () => {
-    if (!employee || !photoTaken || !orgCode) return
-    setLoading(true)
+  // --- Submit attendance ---
+  const confirmAndSubmit = async () => {
+    if (!identifiedEmployee || !capturedPhoto || !orgCode) return
+    setSubmitting(true)
     setError('')
     try {
-      const base64 = photoTaken.split(',')[1]
+      const base64 = capturedPhoto.split(',')[1]
       const res = await fetch('/api/public-attendance', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          user_id: employee.id,
+          user_id: identifiedEmployee.user_id,
           org_code: orgCode.trim(),
           photo_base64: base64,
-          face_verified: verified,
-          face_confidence: lastSimilarity,
+          face_verified: true,
+          face_confidence: identifiedEmployee.similarity,
         }),
       })
       const data = await res.json()
@@ -234,34 +289,43 @@ export default function AbsenClient() {
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Gagal')
     } finally {
-      setLoading(false)
+      setSubmitting(false)
     }
   }
 
+  // --- Decline and rescan ---
+  const declineAndRescan = () => {
+    setIdentifiedEmployee(null)
+    setCapturedPhoto(null)
+    setTodayStatus(null)
+    setScanStatus('')
+    setScanStatus('')
+    setError('')
+    setStep('scan')
+  }
+
+  // --- Reset ---
   const reset = () => {
     stopCamera()
-    setEmployee(null)
-    setEmpCode('')
-    setPhotoTaken(null)
+    stopScanning()
+    setIdentifiedEmployee(null)
+    setCapturedPhoto(null)
     setResult(null)
     setTodayStatus(null)
     setError('')
-    setFaceError('')
-    setVerified(false)
-    setVerifying(false)
-    setCameraReady(false)
-    setLastSimilarity(null)
-    setStep(org ? 'employee' : 'org')
+    setScanStatus('')
+    setSubmitting(false)
+    setFaceBox(null)
+    setStep(org ? 'scan' : 'org')
   }
 
   // Step indicator data
   const steps = [
     { key: 'org', label: 'Perusahaan', num: 1, icon: Building2 },
-    { key: 'employee', label: 'Karyawan', num: 2, icon: User },
-    { key: 'camera', label: 'Absensi', num: 3, icon: ScanFace },
+    { key: 'scan', label: 'Pindai Wajah', num: 2, icon: ScanFace },
   ] as const
 
-  const currentIndex = steps.findIndex(s => s.key === step)
+  const currentIndex = steps.findIndex(s => s.key === step || (step === 'confirm' && s.key === 'scan') || (step === 'result' && s.key === 'scan'))
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-900 via-teal-950 to-slate-900 flex flex-col">
@@ -281,7 +345,7 @@ export default function AbsenClient() {
           </div>
           {org && (
             <span className="text-teal-400/80 text-xs font-medium bg-teal-400/10 px-2.5 py-1 rounded-full">
-              Absensi Web
+              Face ID
             </span>
           )}
         </div>
@@ -334,10 +398,11 @@ export default function AbsenClient() {
           {step === 'org' && (
             <div className="bg-white rounded-2xl shadow-2xl p-8 text-center">
               <div className="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                <Building2 className="w-8 h-8 text-teal-600" />
+                <ScanFace className="w-8 h-8 text-teal-600" />
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-1">Absensi Web</h1>
-              <p className="text-sm text-gray-500 mb-8">Masukkan kode perusahaan untuk memulai absensi</p>
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">Absensi Face ID</h1>
+              <p className="text-sm text-gray-500 mb-2">Arahkan wajah ke kamera untuk absen otomatis</p>
+              <p className="text-xs text-gray-400 mb-8">Masukkan kode perusahaan untuk memulai</p>
               <div className="space-y-4">
                 <input
                   value={orgCode}
@@ -357,76 +422,20 @@ export default function AbsenClient() {
             </div>
           )}
 
-          {/* Step: Employee */}
-          {step === 'employee' && org && (
-            <div className="bg-white rounded-2xl shadow-2xl p-8">
-              <div className="text-center mb-6">
-                <div className="w-14 h-14 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                  <User className="w-7 h-7 text-teal-600" />
-                </div>
-                <h2 className="text-lg font-bold text-gray-900">Identitas Karyawan</h2>
-                <p className="text-sm text-gray-500 mt-1">Masukkan kode karyawan Anda</p>
-              </div>
-              <div className="space-y-4">
-                <input
-                  value={empCode}
-                  onChange={e => setEmpCode(e.target.value.toUpperCase())}
-                  onKeyDown={e => e.key === 'Enter' && lookupEmployee()}
-                  placeholder="Kode karyawan"
-                  autoFocus
-                  className="w-full px-5 py-3.5 border border-gray-200 rounded-xl text-sm font-mono tracking-widest text-center text-lg focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
-                />
-                <button
-                  onClick={lookupEmployee}
-                  disabled={loading || !empCode.trim()}
-                  className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-                >
-                  {loading ? 'Mencari...' : 'Lanjutkan'}
-                </button>
-                <button
-                  onClick={() => { setOrg(null); setStep('org') }}
-                  className="w-full py-2 text-gray-500 text-sm hover:text-gray-700 transition-colors flex items-center justify-center gap-1"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Ganti perusahaan
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Step: Camera */}
-          {step === 'camera' && employee && (
+          {/* Step: Scan (real-time face scanning) */}
+          {step === 'scan' && (
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-              {/* Employee info bar */}
-              <div className="bg-teal-50 px-5 py-3 flex items-center gap-3">
-                <div className="w-10 h-10 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-                  {employee.full_name[0]?.toUpperCase()}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-sm text-teal-900 truncate">{employee.full_name}</p>
-                  <p className="text-xs text-teal-700/60">
-                    {todayStatus?.has_checked_out
-                      ? 'Sudah check-in & check-out hari ini'
-                      : todayStatus?.has_checked_in
-                        ? 'Sudah check-in — akan check-out'
-                        : 'Belum check-in hari ini'
-                    }
-                  </p>
-                </div>
-              </div>
-
               <div className="p-5 space-y-4">
                 {/* Camera area */}
                 <div className="relative bg-slate-900 rounded-xl overflow-hidden aspect-[4/3]">
                   <video
                     ref={videoRef}
-                    className={`w-full h-full object-cover ${photoTaken || !cameraReady ? 'hidden' : ''}`}
+                    className={`w-full h-full object-cover ${!cameraReady ? 'hidden' : ''}`}
                     playsInline
                     muted
                   />
-                  {photoTaken && (
-                    <img src={photoTaken} alt="Foto" className="w-full h-full object-cover" />
-                  )}
-                  {!photoTaken && !cameraReady && (
+
+                  {!cameraReady && (
                     <div className="w-full h-full flex items-center justify-center">
                       <div className="text-center text-white/40">
                         <Camera className="w-10 h-10 mx-auto mb-2" />
@@ -435,28 +444,39 @@ export default function AbsenClient() {
                     </div>
                   )}
 
-                  {/* Face guide oval */}
-                  {!photoTaken && cameraReady && (
+                  {/* Face guide oval + real-time face box */}
+                  {cameraReady && !faceBox && (
                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <div className="w-44 h-56 border-2 border-white/40 rounded-full" />
+                      <div className="w-44 h-56 border-2 border-white/30 rounded-full border-dashed" />
                     </div>
                   )}
 
-                  {/* Verifying overlay */}
-                  {photoTaken && verifying && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                      <div className="text-center">
-                        <div className="w-16 h-16 mx-auto mb-3 rounded-full border-4 border-teal-400 border-t-transparent animate-spin" />
-                        <p className="text-white text-sm font-medium">Memverifikasi wajah...</p>
+                  {/* Real-time face bounding box */}
+                  {cameraReady && faceBox && (
+                    <div
+                      className="absolute border-2 border-teal-400 rounded-lg transition-all duration-150 pointer-events-none"
+                      style={{
+                        left: `${(faceBox.x / (videoRef.current?.videoWidth || 640)) * 100}%`,
+                        top: `${(faceBox.y / (videoRef.current?.videoHeight || 480)) * 100}%`,
+                        width: `${(faceBox.width / (videoRef.current?.videoWidth || 640)) * 100}%`,
+                        height: `${(faceBox.height / (videoRef.current?.videoHeight || 480)) * 100}%`,
+                        boxShadow: '0 0 12px rgba(20, 184, 166, 0.5)',
+                      }}
+                    >
+                      <div className="absolute -top-6 left-0 right-0 text-center">
+                        <span className="bg-teal-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          WAJAH TERDETEKSI
+                        </span>
                       </div>
                     </div>
                   )}
 
-                  {/* Verified overlay */}
-                  {photoTaken && verified && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                      <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-lg shadow-green-500/30">
-                        <Check className="w-9 h-9 text-white" />
+                  {/* Scanning pulse overlay */}
+                  {scanning && (
+                    <div className="absolute inset-0 pointer-events-none">
+                      <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                        <div className="w-2.5 h-2.5 bg-teal-400 rounded-full animate-pulse" />
+                        <span className="text-teal-300 text-[10px] font-bold tracking-wide">SCANNING</span>
                       </div>
                     </div>
                   )}
@@ -464,68 +484,163 @@ export default function AbsenClient() {
 
                 <canvas ref={canvasRef} className="hidden" />
 
-                {/* Model loading indicator */}
-                {!photoTaken && cameraReady && modelsLoading && (
+                {/* No face registrations warning */}
+                {faceRegCount === 0 && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 rounded-xl text-sm text-center">
+                    <p className="font-medium">Belum ada data wajah terdaftar</p>
+                    <p className="text-xs mt-1 text-amber-600">
+                      Belum ada karyawan yang mendaftarkan data wajah di perusahaan ini.
+                      Silakan hubungi admin perusahaan.
+                    </p>
+                  </div>
+                )}
+
+                {/* Model loading */}
+                {modelsLoading && (
                   <div className="text-center text-sm text-gray-500 flex items-center justify-center gap-2">
                     <div className="w-4 h-4 rounded-full border-2 border-teal-400 border-t-transparent animate-spin" />
-                    Memuat model verifikasi...
+                    Memuat model verifikasi wajah...
                   </div>
                 )}
 
-                {/* Face error */}
-                {faceError && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2.5 rounded-xl text-sm text-center">
-                    {faceError}
+                {/* Scan status */}
+                {scanning && scanStatus && (
+                  <div className="text-center text-sm text-gray-600 flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-teal-400 border-t-transparent animate-spin" />
+                    {scanStatus}
                   </div>
                 )}
 
-                {/* Actions */}
-                {!photoTaken && cameraReady && (
+                {/* Waiting for models */}
+                {cameraReady && !modelsReady && !modelsLoading && faceRegCount > 0 && (
+                  <div className="text-center text-sm text-gray-400">Menyiapkan pemindai...</div>
+                )}
+
+                <button
+                  onClick={() => { stopCamera(); stopScanning(); setOrg(null); setStep('org') }}
+                  className="w-full py-2 text-gray-500 text-sm hover:text-gray-700 transition-colors flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Ganti perusahaan
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Step: Confirm */}
+          {step === 'confirm' && identifiedEmployee && (
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+              {/* Captured photo */}
+              {capturedPhoto && (
+                <div className="relative bg-slate-900 aspect-[4/3]">
+                  <img src={capturedPhoto} alt="Foto" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                    <div className="w-14 h-14 bg-teal-500 rounded-full flex items-center justify-center shadow-lg shadow-teal-500/30">
+                      <ShieldCheck className="w-7 h-7 text-white" />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="p-5 space-y-4">
+                {/* Employee info card */}
+                <div className="bg-teal-50 rounded-xl p-4">
+                  <div className="flex items-center gap-3">
+                    {/* Registered face photo */}
+                    {identifiedEmployee.photoUrl ? (
+                      <img
+                        src={identifiedEmployee.photoUrl}
+                        alt="Foto terdaftar"
+                        className="w-14 h-14 rounded-full object-cover border-2 border-teal-200"
+                      />
+                    ) : (
+                      <div className="w-14 h-14 bg-teal-600 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0">
+                        {identifiedEmployee.full_name[0]?.toUpperCase()}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-teal-900 truncate">{identifiedEmployee.full_name}</p>
+                      <p className="text-xs text-teal-700/70">
+                        {identifiedEmployee.employee_id && (
+                          <span className="font-mono">{identifiedEmployee.employee_id}</span>
+                        )}
+                        {identifiedEmployee.employee_id && identifiedEmployee.position && ' · '}
+                        {identifiedEmployee.position}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Similarity score */}
+                  <div className="mt-3 flex items-center justify-between">
+                    <span className="text-xs text-teal-700/60">Kecocokan wajah</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-2 bg-teal-200 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${
+                            identifiedEmployee.similarity >= 0.5 ? 'bg-teal-500' : 'bg-amber-500'
+                          }`}
+                          style={{ width: `${Math.round(identifiedEmployee.similarity * 100)}%` }}
+                        />
+                      </div>
+                      <span className={`text-sm font-bold ${
+                        identifiedEmployee.similarity >= 0.5 ? 'text-teal-600' : 'text-amber-600'
+                      }`}>
+                        {Math.round(identifiedEmployee.similarity * 100)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Weak match warning */}
+                  {identifiedEmployee.similarity < 0.5 && (
+                    <div className="mt-2 bg-amber-100 text-amber-700 text-xs px-3 py-2 rounded-lg">
+                      Kecocokan rendah. Pastikan ini benar-benar Anda.
+                    </div>
+                  )}
+                </div>
+
+                {/* Attendance status */}
+                <div className="bg-gray-50 rounded-xl px-4 py-3 text-center">
+                  <p className="text-sm text-gray-600">
+                    {todayStatus?.has_checked_out
+                      ? '✅ Sudah check-in & check-out hari ini'
+                      : todayStatus?.has_checked_in
+                        ? '📍 Sudah check-in — akan melakukan check-out'
+                        : '📍 Belum check-in hari ini'
+                    }
+                  </p>
+                </div>
+
+                {/* Confirmation prompt */}
+                <p className="text-center text-gray-700 font-medium text-sm">
+                  Apakah ini Anda?
+                </p>
+
+                {/* Action buttons */}
+                <div className="flex gap-3">
                   <button
-                    onClick={takePhoto}
-                    disabled={employee.face_data_exists && !modelsReady}
-                    className="w-full py-3.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2"
+                    onClick={declineAndRescan}
+                    className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-sm"
                   >
-                    <Camera className="w-4 h-4" /> Ambil Foto
+                    Bukan saya
                   </button>
-                )}
-
-                {photoTaken && !verifying && !verified && !faceError && null}
-
-                {faceError && photoTaken && !verifying && (
-                  <button onClick={retake} className="w-full py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-colors flex items-center justify-center gap-2">
-                    <RotateCcw className="w-4 h-4" /> Coba Lagi
+                  <button
+                    onClick={confirmAndSubmit}
+                    disabled={submitting}
+                    className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors text-sm"
+                  >
+                    {submitting
+                      ? 'Menyimpan...'
+                      : todayStatus?.has_checked_in
+                        ? 'Ya, Check-out'
+                        : 'Ya, Check-in'
+                    }
                   </button>
-                )}
-
-                {verified && (
-                  <div className="space-y-3">
-                    <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-2.5 rounded-xl text-sm font-medium text-center">
-                      Wajah terverifikasi
-                      {lastSimilarity !== null && (
-                        <span className="text-green-500 ml-1">({Math.round(lastSimilarity * 100)}%)</span>
-                      )}
-                    </div>
-                    <div className="flex gap-3">
-                      <button onClick={retake} className="flex-1 py-3 border border-gray-200 text-gray-600 rounded-xl font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center gap-1.5">
-                        <RotateCcw className="w-4 h-4" /> Ulang
-                      </button>
-                      <button
-                        onClick={submitAttendance}
-                        disabled={loading}
-                        className="flex-1 py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white rounded-xl font-semibold transition-colors"
-                      >
-                        {loading ? 'Menyimpan...' : todayStatus?.has_checked_in ? 'Check-out' : 'Check-in'}
-                      </button>
-                    </div>
-                  </div>
-                )}
+                </div>
 
                 <button
                   onClick={reset}
                   className="w-full py-2 text-gray-500 text-sm hover:text-gray-700 transition-colors flex items-center justify-center gap-1"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Kembali
+                  <ArrowLeft className="w-3.5 h-3.5" /> Batal
                 </button>
               </div>
             </div>
@@ -542,7 +657,7 @@ export default function AbsenClient() {
               <h2 className="text-xl font-bold text-gray-900 mb-1">
                 {result.type === 'checkin' ? 'Check-in Berhasil!' : 'Check-out Berhasil!'}
               </h2>
-              <p className="text-sm text-gray-500 mb-5">{employee?.full_name}</p>
+              <p className="text-sm text-gray-500 mb-5">{identifiedEmployee?.full_name}</p>
               <div className="bg-teal-50 rounded-xl px-6 py-4 mb-6">
                 <p className="text-3xl font-bold text-teal-600">{result.time} WIB</p>
               </div>
@@ -564,7 +679,7 @@ export default function AbsenClient() {
             <p className="text-white/30 text-xs mb-1">{org.address}</p>
           )}
           <p className="text-white/20 text-xs">
-            Powered by <span className="text-teal-400/60 font-semibold">AbsenKu</span>
+            Powered by <span className="text-teal-400/60 font-semibold">AbsenKu</span> · Face ID
           </p>
         </div>
       </footer>

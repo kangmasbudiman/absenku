@@ -43,6 +43,30 @@ export interface FaceGeometry {
   noseNY: number
 }
 
+// Lightweight detection for real-time 1:N scanning (no geometry, no retry, smaller input)
+export async function detectSingleDescriptor(
+  imageEl: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement
+): Promise<{ descriptor: number[]; box: { x: number; y: number; width: number; height: number } } | null> {
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
+
+  const detection = await faceapi
+    .detectSingleFace(imageEl, options)
+    .withFaceLandmarks()
+    .withFaceDescriptor()
+
+  if (!detection) return null
+
+  return {
+    descriptor: Array.from(detection.descriptor),
+    box: {
+      x: detection.detection.box.x,
+      y: detection.detection.box.y,
+      width: detection.detection.box.width,
+      height: detection.detection.box.height,
+    },
+  }
+}
+
 export async function detectAndExtract(
   imageEl: HTMLImageElement | HTMLCanvasElement
 ): Promise<FaceResult | null> {
