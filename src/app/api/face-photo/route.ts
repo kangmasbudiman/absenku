@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 
       const { data, error } = await admin.storage
         .from(bucket)
-        .createSignedUrl(photoPath, 300) // 5 minutes
+        .createSignedUrl(photoPath!, 300) // 5 minutes
 
       if (error || !data?.signedUrl) {
         return NextResponse.json({ error: 'Failed to generate URL' }, { status: 500 })
