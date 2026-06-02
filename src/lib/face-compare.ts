@@ -49,6 +49,30 @@ export function compareDescriptors(
   }
 }
 
+// Liveness check: compare two descriptors captured at different times
+// If they're nearly identical (distance < threshold), it's likely a static photo
+export function checkLiveness(
+  descriptor1: number[],
+  descriptor2: number[],
+  minDistance: number = 0.04
+): { isLive: boolean; distance: number } {
+  const distance = descriptorDistance(descriptor1, descriptor2)
+  return {
+    isLive: distance >= minDistance,
+    distance,
+  }
+}
+
+// Check if face is large enough in frame (not a small photo from distance)
+// minFaceRatio = minimum face width as fraction of image width
+export function isFaceSizeAdequate(
+  faceWidth: number,
+  imageWidth: number,
+  minFaceRatio: number = 0.2
+): boolean {
+  return (faceWidth / imageWidth) >= minFaceRatio
+}
+
 // 1:N identification — find the closest matching descriptor from a set
 export function findBestMatch(
   capturedDescriptor: number[],

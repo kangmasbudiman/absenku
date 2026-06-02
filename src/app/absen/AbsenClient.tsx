@@ -41,6 +41,8 @@ export default function AbsenClient() {
   const isScanningRef = useRef(false)
   const lastScanTimeRef = useRef(0)
   const consecutiveFailuresRef = useRef(0)
+  const prevDescriptorRef = useRef<number[] | null>(null)
+  const liveFramesRef = useRef(0) // count of frames with different descriptors
 
   // Identified employee & confirmation
   const [identifiedEmployee, setIdentifiedEmployee] = useState<IdentifiedEmployee | null>(null)
@@ -147,6 +149,8 @@ export default function AbsenClient() {
     setScanning(true)
     setScanStatus('Mendeteksi wajah...')
     consecutiveFailuresRef.current = 0
+    prevDescriptorRef.current = null
+    liveFramesRef.current = 0
 
     const scanLoop = async () => {
       if (!isScanningRef.current || !videoRef.current || !canvasRef.current || !modelsReady) {
@@ -168,6 +172,33 @@ export default function AbsenClient() {
 
         if (faceResult) {
           setFaceBox(faceResult.box)
+
+          // Liveness check: compare with previous descriptor
+          // Real faces have micro-movements → descriptors vary slightly
+          // A held photo → descriptors are nearly identical
+          if (prevDescriptorRef.current) {
+            const { checkLiveness } = await import('@/lib/face-compare')
+            const liveness = checkLiveness(prevDescriptorRef.current, faceResult.descriptor)
+            if (liveness.isLive) {
+              liveFramesRef.current++
+            }
+            // Reset if too similar (possible photo)
+            if (!liveness.isLive && liveFramesRef.current > 0) {
+              liveFramesRef.current = 0
+            }
+          }
+          prevDescriptorRef.current = faceResult.descriptor
+
+          // Require at least 2 live frames before calling API
+          // This ensures the face is real (not a static photo)
+          if (liveFramesRef.current < 2) {
+            setScanStatus('Mendeteksi wajah... (verifikasi keaslian)')
+            // Continue scanning without API call
+            if (isScanningRef.current) {
+              requestAnimationFrame(scanLoop)
+            }
+            return
+          }
 
           const now = Date.now()
           // Throttle API calls: min 1.5s between calls

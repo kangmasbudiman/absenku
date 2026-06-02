@@ -1,11 +1,21 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { decryptDescriptor } from '@/lib/face-crypto'
 import { findBestMatch } from '@/lib/face-compare'
+import { isRateLimited, getClientIp } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  // Rate limit: max 20 identification requests per IP per minute
+  const clientIp = getClientIp(req)
+  if (isRateLimited(`identify:${clientIp}`, 20, 60_000)) {
+    return NextResponse.json(
+      { error: 'Terlalu banyak percobaan. Tunggu beberapa saat.', identified: false },
+      { status: 429 }
+    )
+  }
+
   const body = await req.json()
   const { org_code, captured_descriptor } = body as {
     org_code?: string

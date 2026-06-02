@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { isRateLimited, getClientIp } from '@/lib/rate-limit'
 import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
@@ -31,6 +32,15 @@ export async function GET(req: NextRequest) {
 
 // POST /api/public-attendance — check-in atau check-out
 export async function POST(req: NextRequest) {
+  // Rate limit: max 10 attendance submissions per IP per minute
+  const clientIp = getClientIp(req)
+  if (isRateLimited(`attendance:${clientIp}`, 10, 60_000)) {
+    return NextResponse.json(
+      { error: 'Terlalu banyak percobaan absensi. Tunggu beberapa saat.' },
+      { status: 429 }
+    )
+  }
+
   const body = await req.json()
   const { user_id, org_code, photo_base64, face_verified, face_confidence } = body
 
