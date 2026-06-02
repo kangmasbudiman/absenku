@@ -62,16 +62,16 @@ export async function POST(req: NextRequest) {
   const photoPath = `${user_id}/registered_${Date.now()}.jpg`
 
   const { error: uploadError } = await admin.storage
-    .from('face-photos')
+    .from('attendance-photos')
     .upload(photoPath, photoBytes, { contentType: 'image/jpeg', upsert: true })
 
   if (uploadError) {
-    return NextResponse.json({ error: 'Gagal upload foto wajah' }, { status: 500 })
+    return NextResponse.json({ error: 'Gagal upload foto wajah: ' + uploadError.message }, { status: 500 })
   }
 
   // Generate signed URL
   const { data: urlData } = await admin.storage
-    .from('face-photos')
+    .from('attendance-photos')
     .createSignedUrl(photoPath, 31536000) // 1 year
 
   const photoUrl = urlData?.signedUrl ?? ''
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     .upsert(upsertData, { onConflict: 'user_id' })
 
   if (upsertError) {
-    return NextResponse.json({ error: 'Gagal menyimpan data wajah' }, { status: 500 })
+    return NextResponse.json({ error: 'Gagal menyimpan data wajah: ' + upsertError.message }, { status: 500 })
   }
 
   return NextResponse.json({

@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   // Prefer storage path (newer) over legacy signed URL
   if (faceReg.face_photo_path) {
     const { data: urlData } = await admin.storage
-      .from('face-photos')
+      .from('attendance-photos')
       .createSignedUrl(faceReg.face_photo_path, 60) // 60-second expiry
 
     return NextResponse.json({ url: urlData?.signedUrl ?? null })
