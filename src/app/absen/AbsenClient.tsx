@@ -86,6 +86,16 @@ export default function AbsenClient() {
   // Result
   const [result, setResult] = useState<{ type: 'checkin' | 'checkout'; time: string } | null>(null)
 
+  // Recent attendance
+  const [recentAttendance, setRecentAttendance] = useState<Array<{
+    full_name: string
+    employee_id: string | null
+    position: string | null
+    check_in_time: string | null
+    check_out_time: string | null
+    face_verified: boolean
+  }>>([])
+
   // Load saved org code
   useEffect(() => {
     try {
@@ -198,6 +208,13 @@ export default function AbsenClient() {
       }
 
       setStep('scan')
+
+      // Fetch recent attendance
+      try {
+        const recentRes = await fetch(`/api/public-recent-attendance?org_code=${encodeURIComponent(orgCode.trim())}`)
+        const recentData = await recentRes.json()
+        setRecentAttendance(recentData.records ?? [])
+      } catch { /* non-critical */ }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Gagal')
     } finally {
@@ -292,12 +309,10 @@ export default function AbsenClient() {
           }
           prevDescriptorRef.current = faceResult.descriptor
 
-          // Require: 2+ live frames AND blink detected
-          // This ensures the face is real (not static photo or video)
-          if (liveFramesRef.current < 2 || !blinkDetectedRef.current) {
-            setScanStatus(blinkDetectedRef.current
-              ? 'Mendeteksi wajah... (verifikasi keaslian)'
-              : 'Mendeteksi wajah... (kedipkan mata Anda)')
+          // Require at least 1 live frame (micro-movement detected)
+          // Blink is checked but not blocking — logged for audit
+          if (liveFramesRef.current < 1) {
+            setScanStatus('Mendeteksi wajah... (verifikasi keaslian)')
             // Continue scanning without API call
             if (isScanningRef.current) {
               requestAnimationFrame(scanLoop)
@@ -701,6 +716,54 @@ export default function AbsenClient() {
                 >
                   <ArrowLeft className="w-3.5 h-3.5" /> Ganti perusahaan
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* Recent Attendance Card */}
+          {step === 'scan' && recentAttendance.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-gray-100">
+                <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                  Absen Terbaru Hari Ini
+                  <span className="text-xs font-normal text-gray-400">({recentAttendance.length} karyawan)</span>
+                </h3>
+              </div>
+              <div className="divide-y divide-gray-50 max-h-[360px] overflow-y-auto">
+                {recentAttendance.map((rec, i) => {
+                  const time = rec.check_in_time
+                    ? new Date(rec.check_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+                    : '--:--'
+                  const checkoutTime = rec.check_out_time
+                    ? new Date(rec.check_out_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+                    : null
+                  return (
+                    <div key={i} className="px-5 py-3 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-600 shrink-0">
+                        {rec.full_name[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{rec.full_name}</p>
+                        <p className="text-xs text-gray-400">
+                          {rec.employee_id && <span className="mr-2">{rec.employee_id}</span>}
+                          {rec.position && <span>{rec.position}</span>}
+                        </p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-mono text-gray-600">{time}</span>
+                          {rec.face_verified && <span className="text-[10px]" title="Face verified">🛡️</span>}
+                        </div>
+                        {checkoutTime && (
+                          <span className="text-[10px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">
+                            check-out {checkoutTime}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )}

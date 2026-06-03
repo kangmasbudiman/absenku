@@ -48,7 +48,7 @@ export interface FaceGeometry {
 export async function detectSingleDescriptor(
   imageEl: HTMLImageElement | HTMLCanvasElement | HTMLVideoElement
 ): Promise<{ descriptor: number[]; box: { x: number; y: number; width: number; height: number }; ear: number } | null> {
-  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 })
+  const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 })
 
   const detection = await faceapi
     .detectSingleFace(imageEl, options)

@@ -54,7 +54,7 @@ export function compareDescriptors(
 export function checkLiveness(
   descriptor1: number[],
   descriptor2: number[],
-  minDistance: number = 0.04
+  minDistance: number = 0.02
 ): { isLive: boolean; distance: number } {
   const distance = descriptorDistance(descriptor1, descriptor2)
   return {
