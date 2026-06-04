@@ -57,7 +57,7 @@ export default function RosterClient({ employees, shifts, departments, schedules
   // Bulk form state
   const [bulkEmpIds, setBulkEmpIds] = useState<string[]>([])
   const [bulkShiftId, setBulkShiftId] = useState('')
-  const [bulkType, setBulkType] = useState<'all' | 'weekdays' | 'range' | 'off'>('weekdays')
+  const [bulkType, setBulkType] = useState<'all' | 'weekdays' | 'saturday' | 'sunday' | 'range' | 'off'>('weekdays')
   const [bulkFrom, setBulkFrom] = useState('')
   const [bulkTo, setBulkTo] = useState('')
 
@@ -151,6 +151,8 @@ export default function RosterClient({ employees, shifts, departments, schedules
     const targetDays = days.filter(d => {
       if (bulkType === 'all') return true
       if (bulkType === 'weekdays') return !d.isWeekend
+      if (bulkType === 'saturday') return d.dayOfWeek === 6
+      if (bulkType === 'sunday') return d.dayOfWeek === 0
       if (bulkType === 'off') return true
       if (bulkType === 'range') {
         const from = parseInt(bulkFrom), to = parseInt(bulkTo)
@@ -370,6 +372,8 @@ export default function RosterClient({ employees, shifts, departments, schedules
                 <div className="flex flex-wrap gap-2">
                   {[
                     { val: 'weekdays', label: 'Hari Kerja (Sen–Jum)' },
+                    { val: 'saturday', label: 'Sabtu' },
+                    { val: 'sunday', label: 'Minggu' },
                     { val: 'all', label: 'Semua Hari' },
                     { val: 'range', label: 'Rentang Tanggal' },
                   ].map(opt => (
