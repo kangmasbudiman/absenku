@@ -69,7 +69,6 @@ export async function POST(req: NextRequest) {
     .eq('is_active', true)
 
   if (locations && locations.length > 0) {
-    // Office locations configured — GPS is MANDATORY
     if (latitude == null || longitude == null) {
       return NextResponse.json(
         { error: 'Lokasi GPS diperlukan. Aktifkan izin lokasi di browser Anda.' },
