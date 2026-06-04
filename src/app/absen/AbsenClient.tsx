@@ -83,7 +83,7 @@ function AutoRedirectResult({
   )
 }
 
-export default function AbsenClient() {
+export default function AbsenClient({ appName = 'AbsenKu' }: { appName?: string }) {
   const [orgCode, setOrgCode] = useState('')
   const [org, setOrg] = useState<Org | null>(null)
   const [step, setStep] = useState<Step>('org')
@@ -488,10 +488,10 @@ export default function AbsenClient() {
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-teal-500 rounded-lg flex items-center justify-center">
-              <span className="text-white text-sm font-bold">A</span>
+              <span className="text-white text-sm font-bold">{appName[0]?.toUpperCase()}</span>
             </div>
             <div>
-              <span className="text-white font-bold text-base">AbsenKu</span>
+              <span className="text-white font-bold text-base">{appName}</span>
               {org && (
                 <span className="text-white/50 text-xs block leading-tight">{org.name}</span>
               )}
@@ -803,7 +803,7 @@ export default function AbsenClient() {
             <p className="text-white/30 text-xs mb-1">{org.address}</p>
           )}
           <p className="text-white/20 text-xs">
-            Powered by <span className="text-teal-400/60 font-semibold">AbsenKu</span> · Face ID
+            Powered by <span className="text-teal-400/60 font-semibold">{appName}</span> · Face ID
           </p>
         </div>
       </footer>

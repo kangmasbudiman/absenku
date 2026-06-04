@@ -1,6 +1,7 @@
 'use client'
 
-export default function PageLoader() {
+export default function PageLoader({ appName }: { appName?: string }) {
+  const name = appName ?? 'AbsenKu'
   return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="flex flex-col items-center gap-6">
@@ -26,7 +27,7 @@ export default function PageLoader() {
           {/* Center logo — pulsing */}
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-8 h-8 bg-teal-500 rounded-lg flex items-center justify-center animate-[pulse_2s_ease-in-out_infinite] shadow-lg shadow-teal-500/30">
-              <span className="text-white text-sm font-bold">A</span>
+              <span className="text-white text-sm font-bold">{name[0]?.toUpperCase()}</span>
             </div>
           </div>
         </div>

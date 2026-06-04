@@ -124,7 +124,7 @@ interface SidebarProps {
     full_name: string
     role: string
     position?: string | null
-    organizations?: { name: string; company_code: string } | null
+    organizations?: { name: string; company_code: string; app_name: string } | null
     org_id?: string | null
   }
   collapsed?: boolean
@@ -264,6 +264,7 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
   const isApprover = APPROVER_POSITIONS.includes(profile.position ?? '')
 
   const orgName = profile.organizations?.name ?? 'AbsenKu Platform'
+  const appName = profile.organizations?.app_name ?? 'AbsenKu'
   const companyCode = profile.organizations?.company_code ?? 'SUPER'
 
   const groups: NavGroup[] = (isSuperAdmin && !isInspecting)
@@ -364,10 +365,10 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
       <div className={`relative z-10 border-b border-white/10 shrink-0 transition-all duration-300 ${collapsed ? 'p-3' : 'p-5'}`}>
         <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''} mb-3`}>
           <div className="w-9 h-9 bg-teal-500 rounded-lg flex items-center justify-center shrink-0 shadow-lg">
-            <span className="text-white text-sm font-bold">A</span>
+            <span className="text-white text-sm font-bold">{appName[0]?.toUpperCase()}</span>
           </div>
           {!collapsed && (
-            <span className="font-bold text-lg text-white tracking-wide whitespace-nowrap">AbsenKu</span>
+            <span className="font-bold text-lg text-white tracking-wide whitespace-nowrap">{appName}</span>
           )}
         </div>
 

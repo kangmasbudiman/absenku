@@ -12,7 +12,7 @@ interface Props {
     position?: string | null
     org_id?: string | null
     avatar_url?: string | null
-    organizations?: { name: string; company_code: string } | null
+    organizations?: { name: string; company_code: string; app_name: string } | null
   }
   viewingOrg?: { id: string; name: string } | null
   children: React.ReactNode

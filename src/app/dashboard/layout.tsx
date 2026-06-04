@@ -41,7 +41,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   const { data: org } = profile.org_id
-    ? await supabase.from('organizations').select('name, company_code').eq('id', profile.org_id).single()
+    ? await supabase.from('organizations').select('name, company_code, app_name').eq('id', profile.org_id).single()
     : { data: null }
 
   const fullProfile = { ...profile, organizations: org ?? null }

@@ -9,6 +9,7 @@ interface Org {
   id: string
   name: string
   company_code: string
+  app_name: string
   owner_name: string
   owner_email: string
   owner_phone?: string
@@ -34,6 +35,7 @@ const tabs = [
   { id: 'pending', label: 'Menunggu Verifikasi', icon: '⏳' },
   { id: 'approved', label: 'Perusahaan Aktif', icon: '✅' },
   { id: 'rejected', label: 'Ditolak', icon: '❌' },
+  { id: 'branding', label: 'Branding', icon: '🎨' },
 ]
 
 export default function SuperSettingsClient({ orgs, pending, rejected, totalUsers, approverId }: Props) {
@@ -106,6 +108,7 @@ export default function SuperSettingsClient({ orgs, pending, rejected, totalUser
           {activeTab === 'pending' && <PendingTab items={pending} approverId={approverId} />}
           {activeTab === 'approved' && <ApprovedTab items={orgs} />}
           {activeTab === 'rejected' && <RejectedTab items={rejected} />}
+          {activeTab === 'branding' && <BrandingTab orgs={orgs} />}
         </div>
       </div>
     </div>
@@ -331,6 +334,78 @@ function RejectedTab({ items }: { items: Org[] }) {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function BrandingTab({ orgs }: { orgs: Org[] }) {
+  const supabase = createClient()
+  const router = useRouter()
+  const [saving, setSaving] = useState<string | null>(null)
+  const [editValues, setEditValues] = useState<Record<string, string>>(() => {
+    const m: Record<string, string> = {}
+    for (const o of orgs) m[o.id] = o.app_name || 'AbsenKu'
+    return m
+  })
+
+  const handleSave = async (orgId: string) => {
+    const val = editValues[orgId]?.trim()
+    if (!val) return alert('Nama aplikasi tidak boleh kosong')
+    setSaving(orgId)
+    const { error } = await supabase
+      .from('organizations')
+      .update({ app_name: val })
+      .eq('id', orgId)
+    if (error) {
+      alert('Gagal menyimpan: ' + error.message)
+    }
+    setSaving(null)
+    router.refresh()
+  }
+
+  if (orgs.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-20 text-sm text-gray-400">
+        Belum ada perusahaan aktif
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+        <p className="text-sm font-semibold text-gray-700">Nama Aplikasi per Perusahaan</p>
+        <p className="text-xs text-gray-400 mt-0.5">Ubah nama yang tampil di sidebar, halaman login, dan absensi publik</p>
+      </div>
+      <div className="divide-y divide-gray-50">
+        {orgs.map(org => (
+          <div key={org.id} className="px-5 py-4 flex items-center gap-4">
+            <div className="w-9 h-9 bg-teal-100 rounded-xl flex items-center justify-center text-teal-600 font-bold text-sm shrink-0">
+              {editValues[org.id]?.[0]?.toUpperCase() ?? 'A'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-800 text-sm truncate">{org.name}</p>
+              <p className="text-xs text-gray-400">{org.company_code}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={editValues[org.id] ?? ''}
+                onChange={e => setEditValues(prev => ({ ...prev, [org.id]: e.target.value }))}
+                className="px-3 py-2 border border-gray-200 rounded-xl text-sm font-medium w-48 focus:outline-none focus:ring-2 focus:ring-teal-400"
+                placeholder="Nama aplikasi..."
+              />
+              <button
+                onClick={() => handleSave(org.id)}
+                disabled={saving === org.id || (editValues[org.id] ?? '') === (org.app_name || 'AbsenKu')}
+                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white rounded-xl text-sm font-semibold transition-colors"
+              >
+                {saving === org.id ? '...' : 'Simpan'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

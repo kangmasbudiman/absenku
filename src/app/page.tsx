@@ -1,14 +1,25 @@
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase/server'
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const supabase = await createClient()
+  const { data: org } = await supabase
+    .from('organizations')
+    .select('app_name')
+    .eq('is_active', true)
+    .limit(1)
+    .single()
+
+  const appName = org?.app_name ?? 'AbsenKu'
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 to-teal-100">
       <nav className="bg-white shadow-sm px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm font-bold">A</span>
+            <span className="text-white text-sm font-bold">{appName[0]?.toUpperCase()}</span>
           </div>
-          <span className="font-bold text-xl text-teal-600">AbsenKu</span>
+          <span className="font-bold text-xl text-teal-600">{appName}</span>
         </div>
         <div className="flex gap-3">
           <Link href="/absen" className="px-4 py-2 text-teal-600 font-medium hover:underline">
