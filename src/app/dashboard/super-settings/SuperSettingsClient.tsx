@@ -50,14 +50,19 @@ export default function SuperSettingsClient({ orgs, pending, rejected, totalUser
   const handleSavePlatformName = async () => {
     const val = platformName.trim()
     if (!val) return alert('Nama platform tidak boleh kosong')
+    if (orgs.length === 0) return alert('Tidak ada perusahaan aktif')
     setSavingName(true)
-    // Update all approved orgs
-    const { error } = await supabase
-      .from('organizations')
-      .update({ app_name: val })
-      .in('id', orgs.map(o => o.id))
-    if (error) {
-      alert('Gagal menyimpan: ' + error.message)
+    try {
+      const orgIds = orgs.map(o => o.id)
+      const { error } = await supabase
+        .from('organizations')
+        .update({ app_name: val })
+        .in('id', orgIds)
+      if (error) {
+        alert('Gagal menyimpan: ' + error.message)
+      }
+    } catch (e) {
+      alert('Error: ' + (e instanceof Error ? e.message : 'Gagal menyimpan'))
     }
     setSavingName(false)
     router.refresh()
@@ -92,7 +97,7 @@ export default function SuperSettingsClient({ orgs, pending, rejected, totalUser
             />
             <button
               onClick={handleSavePlatformName}
-              disabled={savingName || platformName.trim() === (orgs[0]?.app_name || 'AbsenKu')}
+              disabled={savingName || !platformName.trim()}
               className="px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-40 text-white rounded-xl text-sm font-semibold transition-colors"
             >
               {savingName ? 'Menyimpan...' : 'Simpan'}
