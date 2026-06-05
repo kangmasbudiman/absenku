@@ -60,12 +60,14 @@ export default function SuperSettingsClient({ orgs, pending, rejected, totalUser
         .in('id', orgIds)
       if (error) {
         alert('Gagal menyimpan: ' + error.message)
+        return
       }
+      // Force full reload to update sidebar & all pages
+      window.location.reload()
     } catch (e) {
       alert('Error: ' + (e instanceof Error ? e.message : 'Gagal menyimpan'))
     }
     setSavingName(false)
-    router.refresh()
   }
 
   return (
