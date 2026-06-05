@@ -17,7 +17,7 @@ const superAdminGroups: NavGroup[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: '📊' },
       { href: '/dashboard/companies', label: 'Manajemen Perusahaan', icon: '🏭' },
-      { href: '/dashboard/super-settings', label: 'Verifikasi Pendaftaran', icon: '🛡️' },
+      { href: '/dashboard/super-settings', label: 'Pengaturan Platform', icon: '🛡️' },
     ],
   },
   {
