@@ -32,28 +32,21 @@ export default function LoginClient({ appName = 'AbsenKu' }: { appName?: string 
       let loginEmail = input
 
       if (!isEmail) {
-        const { data: profile, error: profileErr } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('username', input)
-          .maybeSingle()
+        // Use API route with admin client to bypass RLS for username lookup
+        const res = await fetch('/api/lookup-username', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: input }),
+        })
+        const data = await res.json()
 
-        if (profileErr || !profile) {
-          setError('Username tidak ditemukan')
+        if (!res.ok || data.error) {
+          setError(data.error || 'Username tidak ditemukan')
           setIsLoading(false)
           return
         }
 
-        const { data: rpcData, error: rpcErr } = await supabase
-          .rpc('get_email_by_profile_id', { p_profile_id: profile.id })
-
-        if (rpcErr || !rpcData) {
-          setError('Akun tidak ditemukan')
-          setIsLoading(false)
-          return
-        }
-
-        loginEmail = rpcData
+        loginEmail = data.email
       }
 
       const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password })
