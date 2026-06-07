@@ -72,6 +72,8 @@ export interface OfficeLocation {
   is_active: boolean
 }
 
+export type AttendanceMethod = 'face' | 'qr_admin'
+
 export interface Attendance {
   id: string
   user_id: string
@@ -82,7 +84,25 @@ export interface Attendance {
   late_minutes: number
   working_minutes: number
   is_check_in_mock_suspected: boolean
+  method?: AttendanceMethod
   profiles?: { full_name: string; employee_id?: string }
+}
+
+export interface QrToken {
+  id: string
+  token: string
+  org_id: string
+  user_id: string
+  generated_by: string
+  shift_id?: string
+  office_location_id?: string
+  type: 'checkin' | 'checkout'
+  status: 'active' | 'used' | 'expired'
+  expires_at: string
+  used_at?: string
+  attendance_id?: string
+  ip_address?: string
+  created_at: string
 }
 
 export interface LeaveRequest {

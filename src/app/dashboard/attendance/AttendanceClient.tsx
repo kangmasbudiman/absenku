@@ -23,6 +23,7 @@ type Row = {
     check_out_photo_url: string | null
     face_verification_status: string | null
     face_confidence: number | null
+    method: string | null
   } | null
 }
 
@@ -187,12 +188,13 @@ export default function AttendanceClient({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Verifikasi Wajah</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Foto</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Keterangan</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Metode</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-5 py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={10} className="px-5 py-16 text-center text-gray-400 text-sm">
                     Tidak ada data untuk filter ini
                   </td>
                 </tr>
@@ -284,6 +286,12 @@ export default function AttendanceClient({
                   </td>
                   <td className="px-4 py-3.5">
                     <span className="text-xs text-gray-500">{row.attendance?.notes ?? '—'}</span>
+                  </td>
+                  <td className="px-4 py-3.5">
+                    {row.attendance?.method === 'qr_admin'
+                      ? <span className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">📱 QR Admin</span>
+                      : <span className="inline-flex items-center gap-1 text-xs font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">🛡️ Face ID</span>
+                    }
                   </td>
                 </tr>
               ))}
