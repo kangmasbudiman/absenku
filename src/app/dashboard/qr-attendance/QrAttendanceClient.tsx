@@ -213,11 +213,13 @@ export default function QrAttendanceClient({
                 className="w-full flex items-center gap-4 px-6 py-4 hover:bg-teal-50/50 transition-colors text-left group"
               >
                 <div className="w-10 h-10 rounded-xl bg-teal-100 flex items-center justify-center text-sm font-bold text-teal-600 shrink-0">
-                  {(c.app_name || c.name)?.[0]?.toUpperCase()}
+                  {c.name?.[0]?.toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-800 truncate">{c.app_name || c.name}</p>
-                  <p className="text-xs text-gray-400">{c.company_code}</p>
+                  <p className="font-semibold text-gray-800 truncate">{c.name}</p>
+                  <p className="text-xs text-gray-400">
+                    {c.app_name && c.app_name !== c.name ? `${c.app_name} · ` : ''}{c.company_code}
+                  </p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-teal-500 transition-colors" />
               </button>
@@ -229,11 +231,13 @@ export default function QrAttendanceClient({
           {/* Company header + back button */}
           <div className="flex items-center gap-3 bg-white rounded-2xl shadow-sm border border-gray-100 px-5 py-3">
             <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center text-sm font-bold text-teal-600">
-              {(selectedCompany.app_name || selectedCompany.name)?.[0]?.toUpperCase()}
+              {selectedCompany.name?.[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-800 truncate">{selectedCompany.app_name || selectedCompany.name}</p>
-              <p className="text-xs text-gray-400">{selectedCompany.company_code}</p>
+              <p className="font-semibold text-gray-800 truncate">{selectedCompany.name}</p>
+              <p className="text-xs text-gray-400">
+                {selectedCompany.app_name && selectedCompany.app_name !== selectedCompany.name ? `${selectedCompany.app_name} · ` : ''}{selectedCompany.company_code}
+              </p>
             </div>
             <button
               onClick={() => { setSelectedCompany(null); setSelectedEmployee(null); setQrData(null); setSearch('') }}
