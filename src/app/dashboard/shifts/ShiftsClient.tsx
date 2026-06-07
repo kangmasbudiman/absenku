@@ -17,6 +17,7 @@ export default function ShiftsClient({ shifts, orgId }: { shifts: Shift[]; orgId
     name: '', start_time: '08:00', end_time: '17:00',
     late_tolerance_minutes: 15, allowance: 0,
     work_days: [1, 2, 3, 4, 5] as number[],
+    crosses_midnight: false,
   })
 
   const openQuickSaturday = () => {
@@ -29,13 +30,14 @@ export default function ShiftsClient({ shifts, orgId }: { shifts: Shift[]; orgId
       late_tolerance_minutes: existing ? existing.late_tolerance_minutes : 15,
       allowance: existing ? existing.allowance : 0,
       work_days: [6],
+      crosses_midnight: false,
     })
     setShowModal(true)
   }
 
   const openAdd = () => {
     setEditShift(null)
-    setForm({ name: '', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, allowance: 0, work_days: [1,2,3,4,5] })
+    setForm({ name: '', start_time: '08:00', end_time: '17:00', late_tolerance_minutes: 15, allowance: 0, work_days: [1,2,3,4,5], crosses_midnight: false })
     setShowModal(true)
   }
 
@@ -48,13 +50,14 @@ export default function ShiftsClient({ shifts, orgId }: { shifts: Shift[]; orgId
       late_tolerance_minutes: s.late_tolerance_minutes,
       allowance: s.allowance,
       work_days: [...s.work_days],
+      crosses_midnight: (s as any).crosses_midnight ?? false,
     })
     setShowModal(true)
   }
 
   const openEdit = (s: Shift) => {
     setEditShift(s)
-    setForm({ name: s.name, start_time: s.start_time.slice(0,5), end_time: s.end_time.slice(0,5), late_tolerance_minutes: s.late_tolerance_minutes, allowance: s.allowance, work_days: s.work_days })
+    setForm({ name: s.name, start_time: s.start_time.slice(0,5), end_time: s.end_time.slice(0,5), late_tolerance_minutes: s.late_tolerance_minutes, allowance: s.allowance, work_days: s.work_days, crosses_midnight: (s as any).crosses_midnight ?? false })
     setShowModal(true)
   }
 
@@ -137,6 +140,7 @@ export default function ShiftsClient({ shifts, orgId }: { shifts: Shift[]; orgId
               <div className="flex gap-3 text-xs text-gray-500 pt-3 border-t border-gray-50">
                 <span>⏱ Toleransi: {s.late_tolerance_minutes} mnt</span>
                 {s.allowance > 0 && <span>💰 Rp{s.allowance.toLocaleString('id-ID')}</span>}
+                {(s as any).crosses_midnight && <span className="text-purple-600 font-semibold">🌙 Lintas Hari</span>}
               </div>
             </div>
           ))}
@@ -178,6 +182,21 @@ export default function ShiftsClient({ shifts, orgId }: { shifts: Shift[]; orgId
                   <input type="number" min={0} value={form.allowance} onChange={e => setForm({ ...form, allowance: parseFloat(e.target.value) })}
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-400" />
                 </div>
+              </div>
+              {/* Night shift toggle */}
+              <div className="flex items-center gap-3 bg-purple-50 border border-purple-100 rounded-xl px-4 py-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.crosses_midnight}
+                    onChange={e => setForm({ ...form, crosses_midnight: e.target.checked })}
+                    className="w-4 h-4 text-purple-600 rounded focus:ring-purple-400"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-purple-800">🌙 Lintas Hari / Shift Malam</p>
+                    <p className="text-xs text-purple-500">Centang jika shift melewati tengah malam (contoh: 20:00 – 07:00)</p>
+                  </div>
+                </label>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Hari Kerja</label>

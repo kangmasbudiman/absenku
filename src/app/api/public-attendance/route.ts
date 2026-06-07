@@ -151,12 +151,40 @@ export async function POST(req: NextRequest) {
   // Cek absensi hari ini
   const { data: existing } = await admin
     .from('attendances')
-    .select('id, check_in_time, check_out_time')
+    .select('id, check_in_time, check_out_time, shift_id')
     .eq('user_id', user_id)
     .eq('date', today)
     .maybeSingle()
 
+  // Jika tidak ada record hari ini, cek juga hari kemarin (shift malam lintas hari)
+  let yesterdayRecord = null
   if (!existing) {
+    const yesterday = new Date(now.getTime() - 86400000).toLocaleDateString('sv-SE', { timeZone: 'Asia/Jakarta' })
+    const { data: yd } = await admin
+      .from('attendances')
+      .select('id, check_in_time, check_out_time, shift_id')
+      .eq('user_id', user_id)
+      .eq('date', yesterday)
+      .is('check_out_time', null)
+      .maybeSingle()
+
+    if (yd && yd.shift_id) {
+      // Check if the shift crosses midnight
+      const { data: shift } = await admin
+        .from('shifts')
+        .select('crosses_midnight')
+        .eq('id', yd.shift_id)
+        .single()
+      if (shift?.crosses_midnight) {
+        yesterdayRecord = yd
+      }
+    }
+  }
+
+  // Determine which record to use for check-out
+  const activeRecord = existing || yesterdayRecord
+
+  if (!activeRecord) {
     // CHECK-IN
     const { error: insertError } = await admin.from('attendances').insert({
       user_id,
@@ -177,7 +205,7 @@ export async function POST(req: NextRequest) {
       type: 'checkin',
       time: now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }),
     })
-  } else if (existing.check_in_time && !existing.check_out_time) {
+  } else if (activeRecord!.check_in_time && !activeRecord!.check_out_time) {
     // CHECK-OUT
     const { error: updateError } = await admin
       .from('attendances')
@@ -187,7 +215,7 @@ export async function POST(req: NextRequest) {
         face_verification_status: faceStatus,
         face_confidence: face_confidence ?? null,
       })
-      .eq('id', existing.id)
+      .eq('id', activeRecord!.id)
 
     if (updateError) {
       return NextResponse.json({ error: 'Gagal menyimpan check-out' }, { status: 500 })

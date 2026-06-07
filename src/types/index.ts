@@ -60,6 +60,7 @@ export interface Shift {
   late_tolerance_minutes: number
   work_days: number[]
   allowance: number
+  crosses_midnight?: boolean
 }
 
 export interface OfficeLocation {
