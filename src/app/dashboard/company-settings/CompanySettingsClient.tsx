@@ -48,9 +48,13 @@ export default function CompanySettingsClient({ org, announcements: initAnnounce
 
       {/* Company badge */}
       <div className="bg-gradient-to-r from-teal-600 to-teal-500 rounded-2xl p-5 flex items-center gap-4">
-        <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center text-2xl shrink-0">
-          🏢
-        </div>
+        {org?.logo_url ? (
+          <img src={org.logo_url} alt="Logo" className="w-14 h-14 rounded-xl object-cover shadow-md shrink-0" />
+        ) : (
+          <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center text-2xl shrink-0">
+            🏢
+          </div>
+        )}
         <div>
           <h2 className="text-lg font-bold text-white">{org?.name ?? '-'}</h2>
           <p className="text-teal-100 text-sm">{org?.industry ?? 'Belum diisi'}</p>
@@ -99,6 +103,7 @@ export default function CompanySettingsClient({ org, announcements: initAnnounce
 
 function CompanyInfoTab({ org, orgId }: { org: Org | null; orgId: string }) {
   const router = useRouter()
+  const supabase = createClient()
   const [form, setForm] = useState({
     name: org?.name ?? '',
     address: org?.address ?? '',
@@ -110,6 +115,58 @@ function CompanyInfoTab({ org, orgId }: { org: Org | null; orgId: string }) {
   })
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [logoUploading, setLogoUploading] = useState(false)
+  const [logoUrl, setLogoUrl] = useState(org?.logo_url ?? '')
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (file.size > 2 * 1024 * 1024) {
+      setMsg({ type: 'error', text: 'Ukuran file maksimal 2MB' })
+      return
+    }
+
+    setLogoUploading(true)
+    setMsg(null)
+
+    try {
+      const ext = file.name.split('.').pop() ?? 'png'
+      const path = `${orgId}/logo.${ext}`
+
+      // Delete old logo first
+      if (logoUrl) {
+        const oldPath = logoUrl.split('/company-logos/')[1]?.split('?')[0]
+        if (oldPath) {
+          await supabase.storage.from('company-logos').remove([oldPath])
+        }
+      }
+
+      const { error: uploadError } = await supabase.storage
+        .from('company-logos')
+        .upload(path, file, { upsert: true })
+
+      if (uploadError) throw uploadError
+
+      const { data: urlData } = supabase.storage.from('company-logos').getPublicUrl(path)
+      const publicUrl = urlData.publicUrl + '?t=' + Date.now()
+
+      const { error: updateError } = await supabase
+        .from('organizations')
+        .update({ logo_url: publicUrl })
+        .eq('id', orgId)
+
+      if (updateError) throw updateError
+
+      setLogoUrl(publicUrl)
+      setMsg({ type: 'success', text: 'Logo berhasil diupload!' })
+      router.refresh()
+    } catch {
+      setMsg({ type: 'error', text: 'Gagal mengupload logo' })
+    } finally {
+      setLogoUploading(false)
+    }
+  }
 
   const handleSave = async () => {
     setLoading(true)
@@ -123,6 +180,32 @@ function CompanyInfoTab({ org, orgId }: { org: Org | null; orgId: string }) {
 
   return (
     <div className="space-y-5">
+      {/* Logo Upload */}
+      <div className="flex items-center gap-5 p-4 bg-gray-50/80 rounded-2xl border border-gray-100">
+        <div className="relative group">
+          {logoUrl ? (
+            <img src={logoUrl} alt="Logo" className="w-20 h-20 rounded-2xl object-cover border-2 border-gray-200 shadow-sm" />
+          ) : (
+            <div className="w-20 h-20 rounded-2xl bg-white border-2 border-dashed border-gray-300 flex items-center justify-center">
+              <span className="text-3xl">🏢</span>
+            </div>
+          )}
+          <label className={`absolute inset-0 rounded-2xl flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer ${logoUploading ? 'pointer-events-none' : ''}`}>
+            {logoUploading ? (
+              <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+            ) : (
+              <span className="text-white text-xs font-medium">📷 Ganti</span>
+            )}
+          </label>
+          <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+        </div>
+        <div>
+          <p className="font-semibold text-gray-800 text-sm">Logo Perusahaan</p>
+          <p className="text-xs text-gray-400 mt-0.5">Klik logo untuk mengubah · PNG, JPG maks. 2MB</p>
+          <p className="text-xs text-gray-400">Logo akan tampil di sidebar dan halaman login</p>
+        </div>
+      </div>
+
       <div>
         <h2 className="font-semibold text-gray-800">Informasi Perusahaan</h2>
         <p className="text-sm text-gray-400 mt-0.5">Perbarui data dan profil perusahaan</p>

@@ -144,7 +144,7 @@ interface SidebarProps {
     full_name: string
     role: string
     position?: string | null
-    organizations?: { name: string; company_code: string; app_name: string } | null
+    organizations?: { name: string; company_code: string; app_name: string; logo_url?: string } | null
     org_id?: string | null
   }
   collapsed?: boolean
@@ -389,9 +389,13 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
       {/* Logo */}
       <div className={`relative z-10 border-b border-white/10 shrink-0 transition-all duration-300 ${collapsed ? 'p-3' : 'p-5'}`}>
         <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''} mb-3`}>
-          <div className="w-9 h-9 bg-teal-500 rounded-lg flex items-center justify-center shrink-0 shadow-lg">
-            <span className="text-white text-sm font-bold">{appName[0]?.toUpperCase()}</span>
-          </div>
+          {profile.organizations?.logo_url ? (
+            <img src={profile.organizations.logo_url} alt="Logo" className="w-9 h-9 rounded-lg object-cover shrink-0 shadow-lg" />
+          ) : (
+            <div className="w-9 h-9 bg-teal-500 rounded-lg flex items-center justify-center shrink-0 shadow-lg">
+              <span className="text-white text-sm font-bold">{appName[0]?.toUpperCase()}</span>
+            </div>
+          )}
           {!collapsed && (
             <span className="font-bold text-lg text-white tracking-wide whitespace-nowrap">{appName}</span>
           )}
