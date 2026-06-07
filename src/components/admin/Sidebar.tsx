@@ -86,7 +86,26 @@ const adminSettingsGroup: NavGroup = {
   ],
 }
 
-// Menu khusus Approver
+// Menu khusus Kepala Ruangan — hanya jadwal dinas
+const kepalaRuanganGroups: NavGroup[] = [
+  {
+    title: 'Jadwal Dinas',
+    icon: '🗓️',
+    items: [
+      { href: '/dashboard/roster', label: 'Roster Bulanan', icon: '🗓️' },
+    ],
+  },
+]
+
+const kepalaRuanganSettingsGroup: NavGroup = {
+  title: 'Pengaturan',
+  icon: '⚙️',
+  items: [
+    { href: '/dashboard/settings', label: 'Akun Saya', icon: '⚙️' },
+  ],
+}
+
+// Menu khusus Approver (non-kepala_ruangan)
 const approverGroups: NavGroup[] = [
   {
     title: 'Utama',
@@ -260,6 +279,7 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
 
   const isSuperAdmin = profile.role === 'super_admin'
   const isDeptHead = profile.role === 'dept_head'
+  const isKepalaRuangan = profile.position === 'kepala_ruangan'
 
   const APPROVER_POSITIONS = ['direktur', 'sekertaris', 'kabid', 'kabag', 'kepala_ruangan', 'kasie_keperawatan', 'kasie_penunjang']
   const isApprover = APPROVER_POSITIONS.includes(profile.position ?? '')
@@ -272,9 +292,11 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
 
   const groups: NavGroup[] = (isSuperAdmin && !isInspecting)
     ? superAdminGroups
-    : (isDeptHead || isApprover)
-      ? [...approverGroups, approverSettingsGroup]
-      : [...adminGroups, adminSettingsGroup]
+    : profile.position === 'kepala_ruangan'
+      ? [...kepalaRuanganGroups, kepalaRuanganSettingsGroup]
+      : (isDeptHead || isApprover)
+        ? [...approverGroups, approverSettingsGroup]
+        : [...adminGroups, adminSettingsGroup]
 
   const NavLink = ({ href, label, icon }: { href: string; label: string; icon: string }) => {
     const isActive = href === '/dashboard' ? pathname === href : pathname.startsWith(href)
@@ -377,13 +399,13 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
 
         {!collapsed && (
           <div className="flex items-center gap-3 bg-white/10 rounded-xl px-3 py-2.5">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${isSuperAdmin ? 'bg-purple-500' : isApprover ? 'bg-blue-500' : 'bg-teal-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 ${isSuperAdmin ? 'bg-purple-500' : isKepalaRuangan ? 'bg-amber-500' : isApprover ? 'bg-blue-500' : 'bg-teal-400'}`}>
               {profile.full_name[0]?.toUpperCase()}
             </div>
             <div className="min-w-0">
               <p className="text-sm font-semibold text-white truncate">{profile.full_name}</p>
-              <p className={`text-xs capitalize ${isSuperAdmin ? 'text-purple-300' : isApprover ? 'text-blue-300' : 'text-teal-300'}`}>
-                {isSuperAdmin ? 'Super Admin' : isApprover ? 'Approver' : profile.role.replace('_', ' ')}
+              <p className={`text-xs capitalize ${isSuperAdmin ? 'text-purple-300' : isKepalaRuangan ? 'text-amber-300' : isApprover ? 'text-blue-300' : 'text-teal-300'}`}>
+                {isSuperAdmin ? 'Super Admin' : isKepalaRuangan ? 'Kepala Ruangan' : isApprover ? 'Approver' : profile.role.replace('_', ' ')}
               </p>
             </div>
           </div>
@@ -391,7 +413,7 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
 
         {collapsed && (
           <div className="flex justify-center">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${isSuperAdmin ? 'bg-purple-500' : isApprover ? 'bg-blue-500' : 'bg-teal-400'}`}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white ${isSuperAdmin ? 'bg-purple-500' : isKepalaRuangan ? 'bg-amber-500' : isApprover ? 'bg-blue-500' : 'bg-teal-400'}`}>
               {profile.full_name[0]?.toUpperCase()}
             </div>
           </div>
@@ -401,9 +423,9 @@ export default function Sidebar({ profile, collapsed = false, isInspecting = fal
       {/* Badge perusahaan / platform */}
       {!collapsed && (
         <div className="relative z-10 px-4 pt-3 pb-1 shrink-0">
-          <div className={`rounded-lg px-3 py-2 border ${isSuperAdmin ? 'bg-purple-500/10 border-purple-500/20' : isApprover ? 'bg-blue-500/10 border-blue-500/20' : 'bg-white/5 border-white/10'}`}>
+          <div className={`rounded-lg px-3 py-2 border ${isSuperAdmin ? 'bg-purple-500/10 border-purple-500/20' : isKepalaRuangan ? 'bg-amber-500/10 border-amber-500/20' : isApprover ? 'bg-blue-500/10 border-blue-500/20' : 'bg-white/5 border-white/10'}`}>
             <p className="text-xs text-gray-400 truncate">{orgName}</p>
-            <p className={`text-sm font-bold tracking-widest ${isSuperAdmin ? 'text-purple-400' : isApprover ? 'text-blue-400' : 'text-teal-400'}`}>
+            <p className={`text-sm font-bold tracking-widest ${isSuperAdmin ? 'text-purple-400' : isKepalaRuangan ? 'text-amber-400' : isApprover ? 'text-blue-400' : 'text-teal-400'}`}>
               {isSuperAdmin ? appName.toUpperCase() : companyCode}
             </p>
           </div>

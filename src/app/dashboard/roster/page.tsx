@@ -13,12 +13,12 @@ export default async function RosterPage({ searchParams }: { searchParams: Promi
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('org_id, role, department_id')
+    .select('org_id, role, department_id, position')
     .eq('id', user!.id)
     .single()
 
   const orgId = profile!.org_id
-  const isDeptHead = profile!.role === 'dept_head'
+  const isDeptHead = profile!.role === 'dept_head' || profile!.position === 'kepala_ruangan'
 
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`
   const endDate = new Date(year, month, 0).toISOString().slice(0, 10)
