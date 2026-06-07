@@ -50,6 +50,8 @@ export default function RosterClient({ employees, shifts, departments, schedules
   const [saving, setSaving] = useState<string | null>(null)
   const [bulkLoading, setBulkLoading] = useState(false)
   const [activeCell, setActiveCell] = useState<string | null>(null)
+  const [popupPos, setPopupPos] = useState<{ top: number; left: number } | null>(null)
+  const [activeCellData, setActiveCellData] = useState<{ empId: string; dayNum: number; isHoliday: boolean; holidayName: string; sched: Schedule | undefined } | null>(null)
   const [showBulk, setShowBulk] = useState(false)
   const [showHolidays, setShowHolidays] = useState(false)
   const [empSearch, setEmpSearch] = useState('')
@@ -619,7 +621,18 @@ export default function RosterClient({ employees, shifts, departments, schedules
                           d.isWeekend ? 'bg-rose-50/30' : ''
                         } ${isToday ? 'bg-teal-50/40' : ''}`}>
                           <button
-                            onClick={() => setActiveCell(isOpen ? null : key)}
+                            onClick={(e) => {
+                              if (isOpen) {
+                                setActiveCell(null)
+                                setPopupPos(null)
+                                setActiveCellData(null)
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect()
+                                setActiveCell(key)
+                                setPopupPos({ top: rect.bottom + 4, left: rect.left + rect.width / 2 })
+                                setActiveCellData({ empId: emp.id, dayNum: d.num, isHoliday: d.isHoliday, holidayName: d.holidayName, sched: sched ? { ...sched } : undefined })
+                              }
+                            }}
                             disabled={!!isSavingThis}
                             title={d.isHoliday && !sched ? d.holidayName : undefined}
                             className={`w-9 h-8 rounded-xl mx-auto flex items-center justify-center text-[10px] font-bold transition-all
@@ -632,32 +645,6 @@ export default function RosterClient({ employees, shifts, departments, schedules
                           >
                             {isSavingThis ? '⟳' : sched?.is_off ? 'L' : shift ? shift.name.slice(0, 2) : d.isHoliday ? '🔴' : '·'}
                           </button>
-
-                          {isOpen && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 bg-white rounded-xl shadow-xl border border-gray-100 z-30 p-1.5 min-w-36"
-                              onClick={e => e.stopPropagation()}>
-                              {d.isHoliday && (
-                                <p className="text-[10px] text-amber-600 px-3 py-1 font-semibold truncate">{d.holidayName}</p>
-                              )}
-                              {shifts.map((s, i) => (
-                                <button key={s.id}
-                                  onClick={() => assignCell(emp.id, d.num, s.id, false)}
-                                  className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold mb-0.5 ${SHIFT_COLORS[i % SHIFT_COLORS.length]} opacity-90 hover:opacity-100`}>
-                                  {s.name}
-                                </button>
-                              ))}
-                              <button onClick={() => assignCell(emp.id, d.num, null, true)}
-                                className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 mb-0.5">
-                                Libur
-                              </button>
-                              {sched && (
-                                <button onClick={() => clearCell(emp.id, d.num)}
-                                  className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-red-500 hover:bg-red-50">
-                                  Hapus
-                                </button>
-                              )}
-                            </div>
-                          )}
                         </td>
                       )
                     })}
@@ -675,7 +662,37 @@ export default function RosterClient({ employees, shifts, departments, schedules
         </div>
       )}
 
-      {activeCell && <div className="fixed inset-0 z-20" onClick={() => setActiveCell(null)} />}
+      {activeCell && popupPos && activeCellData && (
+        <>
+          <div className="fixed inset-0 z-[100]" onClick={() => { setActiveCell(null); setPopupPos(null); setActiveCellData(null) }} />
+          <div
+            className="fixed bg-white rounded-xl shadow-xl border border-gray-100 z-[101] p-1.5 min-w-36"
+            style={{ top: popupPos.top, left: popupPos.left, transform: 'translateX(-50%)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            {activeCellData.isHoliday && (
+              <p className="text-[10px] text-amber-600 px-3 py-1 font-semibold truncate">{activeCellData.holidayName}</p>
+            )}
+            {shifts.map((s, i) => (
+              <button key={s.id}
+                onClick={() => { assignCell(activeCellData.empId, activeCellData.dayNum, s.id, false); setActiveCell(null); setPopupPos(null); setActiveCellData(null) }}
+                className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold mb-0.5 ${SHIFT_COLORS[i % SHIFT_COLORS.length]} opacity-90 hover:opacity-100`}>
+                {s.name}
+              </button>
+            ))}
+            <button onClick={() => { assignCell(activeCellData.empId, activeCellData.dayNum, null, true); setActiveCell(null); setPopupPos(null); setActiveCellData(null) }}
+              className="w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold bg-gray-100 text-gray-600 hover:bg-gray-200 mb-0.5">
+              Libur
+            </button>
+            {activeCellData.sched && (
+              <button onClick={() => { clearCell(activeCellData.empId, activeCellData.dayNum); setActiveCell(null); setPopupPos(null); setActiveCellData(null) }}
+                className="w-full text-left px-3 py-1.5 rounded-lg text-xs text-red-500 hover:bg-red-50">
+                Hapus
+              </button>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
