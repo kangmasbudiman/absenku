@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id)
     .single()
 
-  if (!adminProfile || !['admin', 'super_admin'].includes(adminProfile.role)) {
-    return NextResponse.json({ error: 'Akses ditolak' }, { status: 403 })
+  if (!adminProfile || adminProfile.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Akses ditolak — hanya Super Admin' }, { status: 403 })
   }
 
   // Parse request body

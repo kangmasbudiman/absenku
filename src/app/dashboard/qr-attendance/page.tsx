@@ -18,7 +18,7 @@ export default async function QrAttendancePage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile?.org_id || !['admin', 'super_admin'].includes(profile.role)) {
+  if (!profile?.org_id || profile.role !== 'super_admin') {
     redirect('/dashboard')
   }
 

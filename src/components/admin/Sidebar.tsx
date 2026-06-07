@@ -17,6 +17,7 @@ const superAdminGroups: NavGroup[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: '📊' },
       { href: '/dashboard/companies', label: 'Manajemen Perusahaan', icon: '🏭' },
+      { href: '/dashboard/qr-attendance', label: 'QR Check-in', icon: '📱' },
       { href: '/dashboard/super-settings', label: 'Pengaturan Platform', icon: '🛡️' },
     ],
   },
@@ -56,7 +57,6 @@ const adminGroups: NavGroup[] = [
       { href: '/dashboard/schedule', label: 'Jadwal Shift', icon: '📅' },
       { href: '/dashboard/roster', label: 'Roster Bulanan', icon: '🗓️' },
       { href: '/dashboard/attendance', label: 'Rekap Kehadiran', icon: '🗂️' },
-      { href: '/dashboard/qr-attendance', label: 'QR Check-in', icon: '📱' },
     ],
   },
   {
