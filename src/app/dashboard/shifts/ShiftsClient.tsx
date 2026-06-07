@@ -200,14 +200,22 @@ export default function ShiftsClient({ shifts, orgId }: { shifts: Shift[]; orgId
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Hari Kerja</label>
-                <div className="flex gap-2 mb-2">
+                <div className="flex gap-2 mb-2 flex-wrap">
                   <button type="button" onClick={() => setForm(f => ({ ...f, work_days: [1,2,3,4,5] }))}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
-                      form.work_days.length === 5 && form.work_days.includes(1) && !form.work_days.includes(6)
+                      form.work_days.length === 5 && form.work_days.includes(1) && !form.work_days.includes(6) && !form.work_days.includes(7)
                         ? 'bg-teal-600 text-white border-teal-600'
                         : 'bg-white text-gray-600 border-gray-200 hover:border-teal-400'
                     }`}>
                     Senin - Jumat
+                  </button>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, work_days: [1,2,3,4,5,6] }))}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
+                      form.work_days.length === 6 && !form.work_days.includes(7)
+                        ? 'bg-indigo-500 text-white border-indigo-500'
+                        : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-400'
+                    }`}>
+                    Senin - Sabtu
                   </button>
                   <button type="button" onClick={() => setForm(f => ({ ...f, work_days: [6] }))}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border ${
