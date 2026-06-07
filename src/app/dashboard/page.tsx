@@ -15,12 +15,23 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('org_id, role')
+    .select('org_id, role, position, department_id, departments(name)')
     .eq('id', user!.id)
     .single()
 
   if (profile?.role === 'super_admin') {
     return <SuperAdminDashboard supabase={supabase} />
+  }
+
+  if (profile?.position === 'kepala_ruangan' && profile?.department_id) {
+    return (
+      <KepalaRuanganDashboard
+        supabase={supabase}
+        orgId={profile.org_id}
+        departmentId={profile.department_id}
+        departmentName={(profile.departments as unknown as { name: string } | null)?.name ?? 'Ruangan'}
+      />
+    )
   }
 
   return <AdminDashboard supabase={supabase} orgId={profile?.org_id!} />
@@ -250,6 +261,179 @@ function _AttendanceDonut({
           <span className="text-xs font-bold text-gray-600">{total}</span>
         </div>
       </div>
+    </div>
+  )
+}
+
+async function KepalaRuanganDashboard({ supabase, orgId, departmentId, departmentName }: {
+  supabase: Awaited<ReturnType<typeof createClient>>
+  orgId: string
+  departmentId: string
+  departmentName: string
+}) {
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+
+  const [
+    { data: allEmployees },
+    { data: todayAttendances },
+  ] = await Promise.all([
+    supabase.from('profiles').select('id, full_name, employee_id, position').eq('org_id', orgId).eq('department_id', departmentId).eq('role', 'employee').eq('is_active', true).order('full_name'),
+    supabase.from('attendances').select('user_id, check_in_time, check_out_time, status, is_lembur').eq('date', today).order('check_in_time', { ascending: true }),
+  ])
+
+  const employees = allEmployees ?? []
+  const attendedIds = new Set((todayAttendances ?? []).map(a => a.user_id))
+  const presentList = employees.filter(e => attendedIds.has(e.id)).map(e => ({
+    ...e,
+    attendance: (todayAttendances ?? []).find(a => a.user_id === e.id)!,
+  }))
+  const absentList = employees.filter(e => !attendedIds.has(e.id))
+  const lemburCount = presentList.filter(e => e.attendance.is_lembur).length
+  const employeeIds = employees.map(e => e.id)
+  const totalStaff = employees.length
+
+  return (
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-800">Dashboard Ruangan</h1>
+        <p className="text-gray-500 text-sm mt-0.5">
+          {format(now, "EEEE, dd MMMM yyyy", { locale: id })}
+        </p>
+      </div>
+
+      {/* Room info card */}
+      <div className="bg-gradient-to-r from-amber-400 to-amber-500 rounded-2xl p-5 text-white shadow-md">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-amber-100 text-xs font-medium uppercase tracking-wider">Ruangan Anda</p>
+            <p className="text-2xl font-bold mt-1">{departmentName}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-bold">{totalStaff}</p>
+            <p className="text-amber-100 text-xs">Staff aktif</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">
+          <p className="text-3xl font-bold text-green-600">{presentList.length}</p>
+          <p className="text-xs text-gray-500 mt-1">✅ Hadir</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">
+          <p className="text-3xl font-bold text-red-500">{absentList.length}</p>
+          <p className="text-xs text-gray-500 mt-1">❌ Belum Absen</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 text-center">
+          <p className="text-3xl font-bold text-orange-500">{lemburCount}</p>
+          <p className="text-xs text-gray-500 mt-1">🔥 Lembur</p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-semibold text-gray-700">Kehadiran Hari Ini</p>
+          <span className="text-sm font-bold text-teal-600">
+            {totalStaff > 0 ? Math.round(presentList.length / totalStaff * 100) : 0}%
+          </span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+          <div
+            className="h-3 bg-gradient-to-r from-teal-400 to-teal-600 rounded-full transition-all"
+            style={{ width: `${totalStaff > 0 ? Math.round(presentList.length / totalStaff * 100) : 0}%` }}
+          />
+        </div>
+        <p className="text-xs text-gray-400 mt-1.5">{presentList.length} dari {totalStaff} staff sudah absen</p>
+      </div>
+
+      {/* Kehadiran detail */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-gray-100">
+          {/* Sudah hadir */}
+          <div>
+            <div className="px-4 py-2.5 bg-green-50 border-b border-green-100">
+              <p className="text-xs font-semibold text-green-700">✅ Sudah Absen ({presentList.length})</p>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+              {presentList.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm py-8">Belum ada yang absen</p>
+              ) : presentList.map(emp => {
+                const att = emp.attendance
+                const checkIn = att.check_in_time ? new Date(att.check_in_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }) : '-'
+                const checkOut = att.check_out_time ? new Date(att.check_out_time).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }) : null
+                const isLembur = att.is_lembur
+                return (
+                  <div key={emp.id} className="px-4 py-3 flex items-center justify-between hover:bg-gray-50/50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-teal-100 rounded-full flex items-center justify-center text-teal-600 font-bold text-sm shrink-0">
+                        {emp.full_name?.[0]?.toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{emp.full_name}</p>
+                        <p className="text-xs text-gray-400">{emp.employee_id ?? '-'}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <span className="text-xs font-semibold text-green-600">↑ {checkIn}</span>
+                        {checkOut && <span className="text-xs font-semibold text-blue-500">↓ {checkOut}</span>}
+                      </div>
+                      {isLembur && (
+                        <span className="text-[10px] bg-orange-100 text-orange-600 font-semibold px-1.5 py-0.5 rounded-full">Lembur</span>
+                      )}
+                      {!checkOut && (
+                        <span className="text-[10px] bg-yellow-100 text-yellow-600 font-semibold px-1.5 py-0.5 rounded-full">Belum checkout</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Belum hadir */}
+          <div>
+            <div className="px-4 py-2.5 bg-red-50 border-b border-red-100">
+              <p className="text-xs font-semibold text-red-600">❌ Belum Absen ({absentList.length})</p>
+            </div>
+            <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
+              {absentList.length === 0 ? (
+                <p className="text-center text-gray-400 text-sm py-8">Semua staff sudah absen 🎉</p>
+              ) : absentList.map(emp => (
+                <div key={emp.id} className="px-4 py-3 flex items-center gap-3 hover:bg-gray-50/50 transition-colors">
+                  <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center text-red-400 font-bold text-sm shrink-0">
+                    {emp.full_name?.[0]?.toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">{emp.full_name}</p>
+                    <p className="text-xs text-gray-400">{emp.employee_id ?? '-'}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick link to roster */}
+      <Link href="/dashboard/roster" className="block">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">🗓️</span>
+            <div>
+              <p className="font-semibold text-gray-800">Kelola Jadwal Dinas</p>
+              <p className="text-xs text-gray-400">Atur roster shift untuk ruangan {departmentName}</p>
+            </div>
+          </div>
+          <span className="text-teal-500 text-lg">→</span>
+        </div>
+      </Link>
+
+      {/* Realtime check-in notifications */}
+      <AttendanceRealtimeWrapper orgId={orgId} employeeIds={employeeIds} />
     </div>
   )
 }
