@@ -166,6 +166,9 @@ export default function EmployeesClient({ employees, departments, shifts, positi
     setIsLoading(true)
     setError('')
     try {
+      if (form.position === 'kepala_ruangan' && !form.department_id) {
+        throw new Error('Kepala ruangan wajib memilih ruangan/departemen')
+      }
       if (editEmployee) {
         const { error: profileError } = await supabase.from('profiles').update({
           full_name: form.full_name,
@@ -512,8 +515,16 @@ export default function EmployeesClient({ employees, departments, shifts, positi
                     <p className="text-sm text-gray-700">{emp.username ?? '-'}</p>
                     <p className="text-xs text-gray-400">{emp.employee_id ?? 'No ID'}</p>
                   </td>
-                  <td className="px-5 py-4 text-sm text-gray-600">
-                    {(emp.departments as { name: string } | null)?.name ?? '-'}
+                  <td className="px-5 py-4">
+                    {(() => {
+                      const deptName = (emp.departments as { name: string } | null)?.name
+                      if (!deptName) return <span className="text-xs text-gray-300">Belum ditentukan</span>
+                      return (
+                        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-teal-50 text-teal-700 border border-teal-100">
+                          📍 {deptName}
+                        </span>
+                      )
+                    })()}
                   </td>
                   <td className="px-5 py-4">
                     {(() => {
@@ -854,13 +865,22 @@ export default function EmployeesClient({ employees, departments, shifts, positi
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Departemen</label>
+                <div className={form.position === 'kepala_ruangan' ? 'ring-2 ring-amber-300 rounded-xl p-3 bg-amber-50' : ''}>
+                  <label className={`block text-sm font-medium mb-1.5 ${form.position === 'kepala_ruangan' ? 'text-amber-700' : 'text-gray-700'}`}>
+                    {form.position === 'kepala_ruangan' ? '📍 Ruangan (Wajib)' : 'Departemen'}
+                  </label>
                   <select value={form.department_id} onChange={e => setForm({ ...form, department_id: e.target.value })}
-                    className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 bg-white">
-                    <option value="">Pilih departemen (opsional)</option>
+                    className={`w-full px-4 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 bg-white ${
+                      form.position === 'kepala_ruangan'
+                        ? 'border-amber-300 focus:ring-amber-400'
+                        : 'border-gray-200 focus:ring-teal-400'
+                    }`}>
+                    <option value="">{form.position === 'kepala_ruangan' ? '⚠️ Pilih ruangan...' : 'Pilih departemen (opsional)'}</option>
                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
+                  {form.position === 'kepala_ruangan' && !form.department_id && (
+                    <p className="text-xs text-amber-600 mt-1 font-medium">Kepala ruangan wajib memilih ruangan yang dikelola</p>
+                  )}
                 </div>
 
                 <div>
