@@ -10,6 +10,7 @@ export default function LoginClient({ appName = 'AbsenKu' }: { appName?: string 
   const searchParams = useSearchParams()
   const [usernameOrEmail, setUsernameOrEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -32,7 +33,6 @@ export default function LoginClient({ appName = 'AbsenKu' }: { appName?: string 
       let loginEmail = input
 
       if (!isEmail) {
-        // Use API route with admin client to bypass RLS for username lookup
         const res = await fetch('/api/lookup-username', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -65,146 +65,131 @@ export default function LoginClient({ appName = 'AbsenKu' }: { appName?: string 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-[#0a0e1a]">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Gradient orbs */}
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-teal-500/20 rounded-full blur-[120px] animate-pulse" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-purple-500/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-[150px]" />
-
-        {/* Grid pattern */}
-        <div className="absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage: 'linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px)',
-            backgroundSize: '60px 60px'
-          }}
-        />
-
-        {/* Floating dots */}
-        {[...Array(6)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-1 h-1 bg-teal-400/40 rounded-full"
-            style={{
-              top: `${15 + i * 15}%`,
-              left: `${10 + i * 16}%`,
-              animation: `float ${3 + i * 0.5}s ease-in-out infinite`,
-              animationDelay: `${i * 0.4}s`,
-            }}
-          />
-        ))}
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 40%, #312e81 70%, #1e1b4b 100%)' }}>
 
       {/* Login card */}
-      <div className="relative w-full max-w-md">
-        {/* Glass card */}
-        <div className="relative backdrop-blur-2xl bg-white/[0.07] border border-white/[0.1] rounded-3xl p-8 shadow-2xl shadow-black/20">
-          {/* Glow effect */}
-          <div className="absolute -inset-[1px] bg-gradient-to-br from-teal-500/20 via-transparent to-purple-500/20 rounded-3xl pointer-events-none" />
+      <div className="relative w-full max-w-[420px]">
+        <div className="bg-[#0d0d0d] rounded-2xl border border-white/[0.06] p-8 shadow-2xl">
 
-          <div className="relative z-10">
-            {/* Logo & brand */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="w-14 h-14 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl flex items-center justify-center shadow-lg shadow-teal-500/30 mb-4 rotate-3 hover:rotate-0 transition-transform duration-300">
-                <span className="text-white text-xl font-bold">{appName[0]?.toUpperCase()}</span>
-              </div>
-              <h1 className="text-2xl font-bold text-white tracking-tight">{appName}</h1>
-              <p className="text-white/40 text-sm mt-1">Panel Admin</p>
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-teal-600 rounded-xl flex items-center justify-center mb-4 shadow-lg shadow-teal-500/20">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+              </svg>
             </div>
-
-            {/* Error */}
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/20 text-red-300 px-4 py-3 rounded-xl mb-5 text-sm backdrop-blur-sm">
-                {error}
-              </div>
-            )}
-
-            {/* Form */}
-            <form onSubmit={handleLogin} className="space-y-5">
-              <div>
-                <label className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">Username / Email</label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="text"
-                    required
-                    value={usernameOrEmail}
-                    onChange={(e) => setUsernameOrEmail(e.target.value)}
-                    placeholder="Masukkan username atau email"
-                    className="w-full pl-11 pr-4 py-3.5 bg-white/[0.06] border border-white/[0.08] rounded-xl text-white text-sm placeholder-white/25 focus:outline-none focus:border-teal-500/50 focus:bg-white/[0.08] focus:ring-1 focus:ring-teal-500/30 transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-white/50 mb-2 uppercase tracking-wider">Password</label>
-                <div className="relative">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                    </svg>
-                  </div>
-                  <input
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-11 pr-4 py-3.5 bg-white/[0.06] border border-white/[0.08] rounded-xl text-white text-sm placeholder-white/25 focus:outline-none focus:border-teal-500/50 focus:bg-white/[0.08] focus:ring-1 focus:ring-teal-500/30 transition-all"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold text-sm transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40 hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Memproses...
-                  </>
-                ) : (
-                  <>
-                    Masuk
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                    </svg>
-                  </>
-                )}
-              </button>
-            </form>
-
-            <div className="mt-6 pt-5 border-t border-white/[0.06] text-center">
-              <p className="text-xs text-white/30">
-                Belum punya akun?{' '}
-                <Link href="/register" className="text-teal-400 hover:text-teal-300 font-medium transition-colors">
-                  Daftar perusahaan
-                </Link>
-              </p>
-            </div>
+            <h1 className="text-xl font-bold text-white tracking-tight">{appName}</h1>
+            <p className="text-sm text-gray-500 mt-1.5">Welcome back! Please sign in to continue</p>
           </div>
+
+          {/* Error */}
+          {error && (
+            <div className="bg-red-500/10 border border-red-500/20 text-red-400 px-4 py-3 rounded-xl mb-5 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Username / Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Username / Email</label>
+              <input
+                type="text"
+                required
+                value={usernameOrEmail}
+                onChange={(e) => setUsernameOrEmail(e.target.value)}
+                placeholder="Masukkan username atau email"
+                className="w-full px-4 py-3 bg-[#1a1a1a] border border-white/[0.06] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/30 transition-all"
+              />
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 pr-12 bg-[#1a1a1a] border border-white/[0.06] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/30 transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                >
+                  {showPassword ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                    </svg>
+                  ) : (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Remember me & Forgot */}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="w-3.5 h-3.5 rounded border-gray-600 bg-[#1a1a1a] text-teal-500 focus:ring-teal-500/30" />
+                <span className="text-xs text-gray-500">Remember me</span>
+              </label>
+            </div>
+
+            {/* Submit button */}
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-400 hover:to-teal-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-semibold text-sm transition-all hover:shadow-lg hover:shadow-teal-500/25 active:scale-[0.98] flex items-center justify-center gap-2"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Memproses...
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                  Masuk
+                </>
+              )}
+            </button>
+          </form>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-white/[0.06]" />
+            <span className="text-xs text-gray-600">atau</span>
+            <div className="flex-1 h-px bg-white/[0.06]" />
+          </div>
+
+          {/* Register link */}
+          <Link
+            href="/register"
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[#1a1a1a] border border-white/[0.06] rounded-xl text-sm text-gray-400 hover:text-white hover:border-white/[0.12] transition-all font-medium"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+            </svg>
+            Daftar Perusahaan Baru
+          </Link>
+
+          {/* Footer */}
+          <p className="text-center text-[10px] text-gray-700 mt-6">
+            © {new Date().getFullYear()} {appName} · Sistem Absensi Digital
+          </p>
         </div>
-
-        {/* Bottom text */}
-        <p className="text-center text-[10px] text-white/15 mt-6">
-          © {new Date().getFullYear()} {appName} · Sistem Absensi Digital
-        </p>
       </div>
-
-      {/* CSS animations */}
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0); opacity: 0.4; }
-          50% { transform: translateY(-20px); opacity: 0.8; }
-        }
-      `}</style>
     </div>
   )
 }
