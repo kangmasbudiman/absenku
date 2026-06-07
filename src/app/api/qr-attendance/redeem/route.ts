@@ -88,6 +88,8 @@ export async function POST(req: NextRequest) {
       .update({
         check_out_time: now.toISOString(),
         method: 'qr_admin',
+        is_verified: true,
+        verified_by: qrToken.generated_by,
         notes: 'QR Admin Check-out',
       })
       .eq('id', existingAtt.id)
@@ -112,6 +114,8 @@ export async function POST(req: NextRequest) {
         .update({
           check_out_time: now.toISOString(),
           method: 'qr_admin',
+          is_verified: true,
+          verified_by: qrToken.generated_by,
           notes: 'QR Admin Check-out',
         })
         .eq('id', existingAtt.id)
@@ -135,6 +139,8 @@ export async function POST(req: NextRequest) {
           office_location_id: qrToken.office_location_id,
           status: 'hadir',
           method: 'qr_admin',
+          is_verified: true,
+          verified_by: qrToken.generated_by,
           notes: 'QR Admin Check-in',
         })
         .select('id')

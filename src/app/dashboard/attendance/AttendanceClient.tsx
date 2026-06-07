@@ -69,12 +69,17 @@ export default function AttendanceClient({
     return <span className="text-xs bg-green-100 text-green-600 font-semibold px-2 py-0.5 rounded-full">Hadir</span>
   }
 
+  // Calculated stats
+  const attendancePercent = summary.total > 0
+    ? Math.round(((summary.hadir + summary.lembur) / summary.total) * 100)
+    : 0
+
   const statCards = [
     { label: 'Total Karyawan', value: summary.total, color: 'from-slate-400 to-slate-600', icon: '👥' },
-    { label: 'Hadir', value: summary.hadir, color: 'from-teal-400 to-teal-600', icon: '✅' },
-    { label: 'Lembur', value: summary.lembur, color: 'from-orange-400 to-orange-600', icon: '⏰' },
-    { label: 'Sudah Checkout', value: summary.checkedOut, color: 'from-blue-400 to-blue-600', icon: '🏃' },
+    { label: 'Hadir', value: summary.hadir + summary.lembur, color: 'from-teal-400 to-teal-600', icon: '✅' },
     { label: 'Tidak Hadir', value: summary.absent, color: 'from-red-400 to-red-600', icon: '❌' },
+    { label: 'Sudah Checkout', value: summary.checkedOut, color: 'from-blue-400 to-blue-600', icon: '🏃' },
+    { label: 'Kehadiran', value: `${attendancePercent}%`, color: attendancePercent >= 80 ? 'from-green-400 to-green-600' : attendancePercent >= 60 ? 'from-yellow-400 to-yellow-600' : 'from-red-400 to-red-600', icon: '📊' },
   ]
 
   const statusOptions = [
@@ -184,17 +189,15 @@ export default function AttendanceClient({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Masuk</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Keluar</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Durasi</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Akurasi GPS</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Verifikasi Wajah</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Verifikasi</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Foto</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Keterangan</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Metode</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-5 py-16 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="px-5 py-16 text-center text-gray-400 text-sm">
                     Tidak ada data untuk filter ini
                   </td>
                 </tr>
@@ -228,13 +231,6 @@ export default function AttendanceClient({
                   </td>
                   <td className="px-4 py-3.5">
                     <span className="text-sm text-gray-600">{workingHours(row) ?? '—'}</span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {row.attendance?.check_in_accuracy != null
-                      ? <span className={`text-xs font-medium ${row.attendance.check_in_accuracy <= 20 ? 'text-green-600' : row.attendance.check_in_accuracy <= 50 ? 'text-yellow-600' : 'text-red-500'}`}>
-                          ±{Math.round(row.attendance.check_in_accuracy)}m
-                        </span>
-                      : <span className="text-gray-300 text-sm">—</span>}
                   </td>
                   <td className="px-4 py-3.5">
                     {row.attendance?.face_verification_status
@@ -286,12 +282,6 @@ export default function AttendanceClient({
                   </td>
                   <td className="px-4 py-3.5">
                     <span className="text-xs text-gray-500">{row.attendance?.notes ?? '—'}</span>
-                  </td>
-                  <td className="px-4 py-3.5">
-                    {row.attendance?.method === 'qr_admin'
-                      ? <span className="inline-flex items-center gap-1 text-xs font-semibold bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">📱 QR Admin</span>
-                      : <span className="inline-flex items-center gap-1 text-xs font-semibold bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full">🛡️ Face ID</span>
-                    }
                   </td>
                 </tr>
               ))}
